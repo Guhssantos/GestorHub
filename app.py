@@ -2,8 +2,49 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-# 1. Configuração da Página
+# 1. Configuração da Página (Sempre tem que ser a primeira linha do Streamlit)
 st.set_page_config(page_title="GestorHub", page_icon="🧠", layout="wide")
+
+# ==========================================
+# 🔐 SISTEMA DE LOGIN (A Mágica da Memória)
+# ==========================================
+
+# Cria a "memória" para saber se o usuário está logado
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+
+# Se NÃO estiver logado, mostra apenas a tela de Login
+if not st.session_state["logado"]:
+    # Criando colunas para centralizar a caixa de login no meio da tela
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.write("")
+        st.write("")
+        st.write("")
+        st.title("🧠 Bem-vindo ao GestorHub")
+        st.write("Faça login para acessar o seu centro de comando.")
+        
+        st.divider()
+        
+        # Campos de texto
+        usuario = st.text_input("Usuário")
+        senha = st.text_input("Senha", type="password") # type="password" esconde as letras!
+        
+        if st.button("Entrar no Sistema", type="primary", use_container_width=True):
+            # AQUI DEFINIMOS A SENHA OFICIAL (Exemplo simples)
+            if usuario == "gestor" and senha == "hub2024":
+                st.session_state["logado"] = True
+                st.rerun() # Faz a página recarregar para sumir o login e aparecer o sistema
+            else:
+                st.error("⚠️ Usuário ou senha incorretos. Tente novamente.")
+                
+    # O comando st.stop() impede que o resto do código abaixo seja lido se não estiver logado
+    st.stop()
+
+# ==========================================
+# 🚀 O SISTEMA GESTORHUB (Só aparece se logado)
+# ==========================================
 
 # ESTILOS VISUAIS (CSS)
 st.markdown("""
@@ -25,15 +66,15 @@ with st.sidebar:
     st.write("Bem-vindo, Gestor!")
     st.divider()
     
-    # Adicionei a Carga de Trabalho de volta ao menu!
-    opcao_escolhida = st.radio("Navegação do Sistema:", [
-        "📊 Dashboard", 
-        "📅 Agenda", 
-        "🎥 Reuniões", 
-        "🎫 Chamados", 
-        "⚙️ Day Pulse",
-        "📝 Carga de Trabalho" 
+    opcao_escolhida = st.radio("Navegação:", [
+        "📊 Dashboard", "📅 Agenda", "🎥 Reuniões", "🎫 Chamados", "⚙️ Day Pulse", "📝 Carga de Trabalho" 
     ])
+    
+    st.divider()
+    # Botão de Sair (Logout)
+    if st.button("Sair (Logout)", use_container_width=True):
+        st.session_state["logado"] = False
+        st.rerun()
 
 # ---------------------------------------------------------
 # 3. LÓGICA DE TELAS
@@ -49,7 +90,7 @@ if opcao_escolhida == "📊 Dashboard":
     st.warning("**Chamado #1042 em atraso:** Sistema fora do ar na filial Sul.")
 
 elif opcao_escolhida == "📅 Agenda":
-    st.title("📅 Sua Agenda (Hoje)")
+    st.title("📅 Sua Agenda")
     col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
     col_kpi1.metric("Tempo em Reuniões", "4h 30m", "50% do dia", delta_color="inverse")
     col_kpi2.metric("Tempo de Foco (Livre)", "3h 30m", "Tempo para trabalhar")
@@ -75,33 +116,14 @@ elif opcao_escolhida == "⚙️ Day Pulse":
     with col4: st.markdown('<div class="pulse-card"><div class="pulse-icon">☀️</div><div class="pulse-title">LIVRE</div><div class="pulse-value cor-verde">5h 30m</div></div>', unsafe_allow_html=True)
     with col5: st.markdown('<div class="pulse-card"><div class="pulse-icon">🏁</div><div class="pulse-title">TÉRMINO</div><div class="pulse-value cor-vermelha">18:00</div></div>', unsafe_allow_html=True)
 
-# --- A MÁGICA ACONTECE AQUI ---
 elif opcao_escolhida == "📝 Carga de Trabalho":
     st.title("📝 Tarefas da Equipe")
-    st.write("Lendo dados **ao vivo** da sua planilha do Google!")
-    
-    # 1. Transformamos o seu link em um link de download de dados (CSV)
     url_google_sheets = "https://docs.google.com/spreadsheets/d/18zJTm9sVvZLYqyUicQHl8R5-UWmM3qLOoE0vPAZU6_g/export?format=csv"
-    
     try:
-        # 2. O Python vai na internet e puxa a planilha
         dados_da_planilha = pd.read_csv(url_google_sheets)
-        
-        # 3. Ajuste: Transformar os textos FALSO/VERDADEIRO em caixinhas de marcar
         if 'Concluido' in dados_da_planilha.columns:
             dados_da_planilha['Concluido'] = dados_da_planilha['Concluido'].replace({'FALSO': False, 'VERDADEIRO': True})
-        
-        # 4. Mostra na tela!
-        st.data_editor(
-            dados_da_planilha, 
-            hide_index=True, 
-            use_container_width=True,
-            column_config={
-                "Concluido": st.column_config.CheckboxColumn("Concluído?")
-            }
-        )
-        
+        st.data_editor(dados_da_planilha, hide_index=True, use_container_width=True, column_config={"Concluido": st.column_config.CheckboxColumn("Concluído?")})
         st.success("Conexão com Banco de Dados realizada com sucesso! 🟢")
-        
     except Exception as e:
         st.error(f"Erro ao conectar com a planilha. Verifique se ela não está vazia. Erro técnico: {e}")
