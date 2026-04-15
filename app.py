@@ -12,6 +12,9 @@ st.markdown("""
     .pulse-icon { font-size: 20px; margin-bottom: 5px; }
     .pulse-title { font-size: 11px; color: #888888; text-transform: uppercase; font-weight: bold; margin-bottom: 5px;}
     .pulse-value { font-size: 18px; font-weight: bold; }
+    .agenda-card { background-color: #f8fafc; border-left: 5px solid #3b82f6; padding: 15px; margin-bottom: 10px; border-radius: 0 8px 8px 0; }
+    .agenda-card.urgente { border-left-color: #ef4444; background-color: #fef2f2; }
+    .agenda-card.foco { border-left-color: #10b981; background-color: #f0fdf4; }
     .cor-verde { color: #10b981; } .cor-azul { color: #3b82f6; } .cor-cinza { color: #6b7280; } .cor-vermelha { color: #ef4444; }
 </style>
 """, unsafe_allow_html=True)
@@ -21,7 +24,16 @@ with st.sidebar:
     st.title("🧠 GestorHub")
     st.write("Bem-vindo, Gestor!")
     st.divider()
-    opcao_escolhida = st.radio("Navegação do Sistema:", ["📊 Dashboard", "📅 Agenda", "🎥 Reuniões", "🎫 Chamados", "⚙️ Day Pulse"])
+    
+    # Adicionei a Carga de Trabalho de volta ao menu!
+    opcao_escolhida = st.radio("Navegação do Sistema:", [
+        "📊 Dashboard", 
+        "📅 Agenda", 
+        "🎥 Reuniões", 
+        "🎫 Chamados", 
+        "⚙️ Day Pulse",
+        "📝 Carga de Trabalho" 
+    ])
 
 # ---------------------------------------------------------
 # 3. LÓGICA DE TELAS
@@ -29,96 +41,33 @@ with st.sidebar:
 
 if opcao_escolhida == "📊 Dashboard":
     st.title("📊 Visão Geral do Dia")
-    st.write("O que você precisa saber hoje para tomar decisões rápidas.")
-    st.divider()
     col1, col2, col3 = st.columns(3)
-    col1.metric(label="Reuniões Hoje", value="4", delta="1 cancelada")
-    col2.metric(label="Chamados Críticos", value="2", delta="-3 resolvidos", delta_color="inverse")
-    col3.metric(label="Tarefas Pendentes", value="12")
+    col1.metric("Reuniões Hoje", "4", "1 cancelada")
+    col2.metric("Chamados Críticos", "2", "-3 resolvidos", delta_color="inverse")
+    col3.metric("Tarefas Pendentes", "12")
     st.divider()
-    st.subheader("⚠️ Requer Atenção Imediata")
     st.warning("**Chamado #1042 em atraso:** Sistema fora do ar na filial Sul.")
-    st.info("**Próxima Reunião:** Alinhamento de Produto em 15 minutos.")
 
 elif opcao_escolhida == "📅 Agenda":
-    st.title("📅 Sua Agenda")
-    st.info("Em breve: Integração com Microsoft Outlook.")
+    st.title("📅 Sua Agenda (Hoje)")
+    col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+    col_kpi1.metric("Tempo em Reuniões", "4h 30m", "50% do dia", delta_color="inverse")
+    col_kpi2.metric("Tempo de Foco (Livre)", "3h 30m", "Tempo para trabalhar")
+    col_kpi3.metric("Convites Pendentes", "1", "Ação necessária", delta_color="off")
+    st.divider()
+    st.markdown('<div class="agenda-card urgente"><h4 style="margin:0; color:#ef4444;">14:00 - 15:30 | Alinhamento de Produto</h4></div>', unsafe_allow_html=True)
 
 elif opcao_escolhida == "🎥 Reuniões":
     st.title("🎥 Inteligência de Reuniões")
-    st.write("Acesse os resumos automáticos gerados pela IA para economizar seu tempo.")
-    reuniao_selecionada = st.selectbox("Selecione uma reunião recente:", ["Alinhamento de Produto (Hoje, 10:00)", "Kickoff do Projeto Alpha (Ontem)"])
-    st.divider()
-    st.subheader(f"📌 {reuniao_selecionada}")
-    col_info1, col_info2, col_info3 = st.columns(3)
-    col_info1.write("**Duração:** 45 minutos")
-    col_info2.write("**Participantes:** 5 pessoas")
-    col_info3.write("**Status IA:** ✨ Resumo Concluído")
-    st.write("")
-    aba1, aba2, aba3 = st.tabs(["📝 Resumo da IA", "🎯 Decisões Tomadas", "✅ Tarefas e Pendências"])
-    with aba1:
-        st.write("### O que foi discutido (TL;DR)")
-        st.write("A equipe discutiu os atrasos na entrega da nova funcionalidade do sistema...")
-    with aba2:
-        st.success("✔️ **Decisão 1:** O prazo de lançamento foi adiado para o dia 15.")
-    with aba3:
-        st.checkbox("Design: Enviar telas finais para aprovação (Responsável: Ana)")
-        st.button("Mover tarefas pendentes para o 'Day Pulse'", type="primary")
+    aba1, aba2, aba3 = st.tabs(["📝 Resumo", "🎯 Decisões", "✅ Tarefas"])
+    with aba1: st.write("A equipe discutiu atrasos na nova funcionalidade...")
 
-# --- NOVA TELA: CHAMADOS (Indicadores e Gráficos) ---
 elif opcao_escolhida == "🎫 Chamados":
     st.title("🎫 Central de Chamados")
-    st.write("Acompanhe os SLAs e a fila de atendimento da sua equipe.")
-    
-    # Linha 1: Indicadores rápidos (KPIs) com cores!
-    st.markdown("### 🚨 Visão Rápida (SLA)")
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    kpi1.metric(label="Abertos", value="45", delta="5 novos hoje", delta_color="off")
-    kpi2.metric(label="Em Andamento", value="18")
-    kpi3.metric(label="Resolvidos Hoje", value="12", delta="Acima da média")
-    kpi4.metric(label="🚨 Em Atraso", value="3", delta="-2 resolvidos", delta_color="inverse")
-    
-    st.divider()
-    
-    # Criando Dados "Fake" para os gráficos
-    dados_grafico = pd.DataFrame({
-        "Categoria": ["Erro de Sistema", "Dúvida", "Acesso/Senha", "Equipamento", "Outros"],
-        "Quantidade": [15, 12, 20, 5, 3]
-    })
-    
-    # Dividindo a tela em duas colunas para os gráficos/tabelas
-    col_grafico, col_tabela = st.columns([6, 4]) # 60% pro gráfico, 40% pra tabela
-    
-    with col_grafico:
-        st.markdown("### 📊 Chamados por Categoria")
-        # Criando um gráfico de barras bem bonito com Altair
-        grafico_barras = alt.Chart(dados_grafico).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-            x=alt.X("Categoria", sort="-y", title=""),
-            y=alt.Y("Quantidade", title="Nº de Chamados"),
-            color=alt.condition(
-                alt.datum.Quantidade > 15,  # Se tiver mais de 15 chamados, fica vermelho!
-                alt.value("#ef4444"),     # Vermelho
-                alt.value("#3b82f6")      # Azul normal
-            )
-        ).properties(height=300)
-        
-        st.altair_chart(grafico_barras, use_container_width=True)
-        
-    with col_tabela:
-        st.markdown("### 🔥 Top 3 Mais Críticos")
-        st.write("Estes chamados estão prestes a romper o SLA e precisam de atenção.")
-        
-        # Lista simples para foco na ação rápida
-        st.error("**#1042** - Sistema de Vendas Fora do Ar (Faltam 10 min)")
-        st.warning("**#1055** - Falha na integração de pagamentos (Faltam 45 min)")
-        st.warning("**#1061** - Dúvida sobre novo processo de devolução (Faltam 2 horas)")
-        
-        st.button("Ver fila completa de chamados", use_container_width=True)
+    st.write("Visão do Power BI em breve.")
 
 elif opcao_escolhida == "⚙️ Day Pulse":
     st.title("💓 Day Pulse")
-    st.write("Medição de carga mental e ocupação baseada na sua agenda de hoje.")
-    st.write("") 
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1: st.markdown('<div class="pulse-card"><div class="pulse-icon">💓</div><div class="pulse-title">RITMO</div><div class="pulse-value cor-verde">Leve</div></div>', unsafe_allow_html=True)
     with col2: st.markdown('<div class="pulse-card"><div class="pulse-icon">📅</div><div class="pulse-title">EVENTOS</div><div class="pulse-value cor-azul">3</div></div>', unsafe_allow_html=True)
@@ -126,10 +75,33 @@ elif opcao_escolhida == "⚙️ Day Pulse":
     with col4: st.markdown('<div class="pulse-card"><div class="pulse-icon">☀️</div><div class="pulse-title">LIVRE</div><div class="pulse-value cor-verde">5h 30m</div></div>', unsafe_allow_html=True)
     with col5: st.markdown('<div class="pulse-card"><div class="pulse-icon">🏁</div><div class="pulse-title">TÉRMINO</div><div class="pulse-value cor-vermelha">18:00</div></div>', unsafe_allow_html=True)
 
-    st.write("")
-    st.write("**Próximo Evento:** Reunião de Alinhamento (Restam 45 min)")
-    col_inicio, col_barra, col_fim = st.columns([1, 8, 1])
-    with col_inicio: st.write("09:00")
-    with col_barra: st.progress(50)
-    with col_fim: st.write("19:00")
-    st.markdown("<span style='color: #10b981;'>● Dia leve</span>", unsafe_allow_html=True)
+# --- A MÁGICA ACONTECE AQUI ---
+elif opcao_escolhida == "📝 Carga de Trabalho":
+    st.title("📝 Tarefas da Equipe")
+    st.write("Lendo dados **ao vivo** da sua planilha do Google!")
+    
+    # 1. Transformamos o seu link em um link de download de dados (CSV)
+    url_google_sheets = "https://docs.google.com/spreadsheets/d/18zJTm9sVvZLYqyUicQHl8R5-UWmM3qLOoE0vPAZU6_g/export?format=csv"
+    
+    try:
+        # 2. O Python vai na internet e puxa a planilha
+        dados_da_planilha = pd.read_csv(url_google_sheets)
+        
+        # 3. Ajuste: Transformar os textos FALSO/VERDADEIRO em caixinhas de marcar
+        if 'Concluido' in dados_da_planilha.columns:
+            dados_da_planilha['Concluido'] = dados_da_planilha['Concluido'].replace({'FALSO': False, 'VERDADEIRO': True})
+        
+        # 4. Mostra na tela!
+        st.data_editor(
+            dados_da_planilha, 
+            hide_index=True, 
+            use_container_width=True,
+            column_config={
+                "Concluido": st.column_config.CheckboxColumn("Concluído?")
+            }
+        )
+        
+        st.success("Conexão com Banco de Dados realizada com sucesso! 🟢")
+        
+    except Exception as e:
+        st.error(f"Erro ao conectar com a planilha. Verifique se ela não está vazia. Erro técnico: {e}")
