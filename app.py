@@ -3,7 +3,6 @@ import pandas as pd
 import time 
 import streamlit.components.v1 as components 
 
-# 1. Configuração da Página
 st.set_page_config(page_title="GestorHub", page_icon="🧠", layout="wide")
 
 # ==========================================
@@ -33,7 +32,8 @@ if not st.session_state["logado"]:
 # 🚀 O SISTEMA GESTORHUB
 # ==========================================
 
-# ESTILOS VISUAIS
+url_google_sheets = "https://docs.google.com/spreadsheets/d/18zJTm9sVvZLYqyUicQHl8R5-UWmM3qLOoE0vPAZU6_g/export?format=csv"
+
 st.markdown("""
 <style>
     .pulse-card { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #333333; }
@@ -46,7 +46,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 2. Menu Lateral
 with st.sidebar:
     st.title("🧠 GestorHub")
     st.write("Bem-vindo, Gestor!")
@@ -63,12 +62,28 @@ with st.sidebar:
 
 if opcao_escolhida == "📊 Dashboard":
     st.title("📊 Visão Geral do Dia")
+    st.write("O que você precisa focar agora.")
+    st.info("🕒 **Próxima Reunião em 15 min:** Alinhamento de Produto | [🎥 Entrar no Teams](#)")
+    try:
+        df_tarefas = pd.read_csv(url_google_sheets)
+        tarefas_pendentes = len(df_tarefas[df_tarefas['Concluido'] == 'FALSO'])
+    except:
+        tarefas_pendentes = "Erro"
+
     col1, col2, col3 = st.columns(3)
-    col1.metric("Reuniões Hoje", "4", "1 cancelada")
-    col2.metric("Chamados Críticos", "2", "-3 resolvidos", delta_color="inverse")
-    col3.metric("Tarefas Pendentes", "12")
+    col1.metric("Reuniões Restantes", "2", "-2 concluídas", delta_color="normal")
+    col2.metric("SLA de Chamados", "98%", "Atenção", delta_color="off")
+    col3.metric("Tarefas Pendentes", tarefas_pendentes, "Base atualizada", delta_color="normal")
+    
     st.divider()
-    st.warning("**Chamado #1042 em atraso:** Sistema fora do ar na filial Sul.")
+    col_alertas, col_resumo = st.columns(2)
+    with col_alertas:
+        st.subheader("⚠️ Alertas Prioritários")
+        st.error("🚨 **Atraso Crítico:** Chamado #1042 rompeu o SLA.")
+        st.warning("👤 **Sobrecarga:** A analista 'Ana' possui 3 tarefas de Alta Prioridade acumuladas.")
+    with col_resumo:
+        st.subheader("💡 Último Insight da IA")
+        st.success("**CAB (Comitê de Mudanças):** Atualização do BD do ERP Aprovada para Domingo às 02h. Risco baixo.")
 
 elif opcao_escolhida == "📅 Agenda":
     st.title("📅 Sua Agenda")
@@ -92,18 +107,14 @@ elif opcao_escolhida == "🎥 Reuniões":
                 with aba2: st.success("✔️ **APROVADO: Atualização do BD do ERP**")
                 with aba3: st.checkbox("Agendar janela de manutenção para Domingo às 02h")
 
-# --- TELA ATUALIZADA: 100% FIEL AO SEU PRD (POWER BI REAL) ---
 elif opcao_escolhida == "🎫 Chamados":
     st.title("🎫 Chamados")
-    st.write("Integração com sistemas de chamados via Power BI.")
-    
     st.divider()
-    
-    # O SEU link exato do Power BI que você mandou na mensagem anterior
     seu_link_power_bi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
     
-    # Embutindo o Power BI na tela
-    components.iframe(seu_link_power_bi, width=1000, height=650, scrolling=True)
+    # ⚠️ AQUI ESTÁ A MUDANÇA DO TAMANHO
+    # Aumentei a largura (width) para 1400 e a altura (height) para 850
+    components.iframe(seu_link_power_bi, width=1400, height=850, scrolling=True)
 
 elif opcao_escolhida == "⚙️ Day Pulse":
     st.title("💓 Day Pulse")
@@ -116,7 +127,6 @@ elif opcao_escolhida == "⚙️ Day Pulse":
 
 elif opcao_escolhida == "📝 Carga de Trabalho":
     st.title("📝 Tarefas da Equipe")
-    url_google_sheets = "https://docs.google.com/spreadsheets/d/18zJTm9sVvZLYqyUicQHl8R5-UWmM3qLOoE0vPAZU6_g/export?format=csv"
     try:
         dados_da_planilha = pd.read_csv(url_google_sheets)
         if 'Concluido' in dados_da_planilha.columns:
