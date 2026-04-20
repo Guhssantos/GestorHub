@@ -1,136 +1,173 @@
 import streamlit as st
-import pandas as pd
-import time 
-import streamlit.components.v1 as components 
+import streamlit.components.v1 as components
+import time
 
-st.set_page_config(page_title="GestorHub", page_icon="🧠", layout="wide")
-
-# ==========================================
-# 🔐 SISTEMA DE LOGIN
-# ==========================================
-if "logado" not in st.session_state:
-    st.session_state["logado"] = False
-
-if not st.session_state["logado"]:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.write(""); st.write(""); st.write("")
-        st.title("🧠 Bem-vindo ao GestorHub")
-        st.write("Faça login para acessar o seu centro de comando.")
-        st.divider()
-        usuario = st.text_input("Usuário")
-        senha = st.text_input("Senha", type="password")
-        if st.button("Entrar no Sistema", type="primary", use_container_width=True):
-            if usuario == "gestor" and senha == "hub2024":
-                st.session_state["logado"] = True
-                st.rerun()
-            else:
-                st.error("⚠️ Usuário ou senha incorretos.")
-    st.stop()
+# 1. Configuração da Página (Mobile-First)
+st.set_page_config(page_title="GestorHub App", page_icon="📱", layout="centered")
 
 # ==========================================
-# 🚀 O SISTEMA GESTORHUB
+# 🎨 CSS RESPONSIVO & PROFISSIONAL
 # ==========================================
-
-url_google_sheets = "https://docs.google.com/spreadsheets/d/18zJTm9sVvZLYqyUicQHl8R5-UWmM3qLOoE0vPAZU6_g/export?format=csv"
-
 st.markdown("""
 <style>
-    .pulse-card { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #333333; }
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Estilo do Botão Microsoft */
+    .ms-btn {
+        display: flex; align-items: center; justify-content: center;
+        background-color: #2F2F2F; color: white; padding: 12px;
+        border-radius: 6px; font-weight: bold; cursor: pointer;
+        border: 1px solid #000; margin-top: 20px;
+    }
+    
+    /* Grid Responsivo para o Day Pulse */
+    .pulse-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px; margin-top: 10px;
+    }
+    .pulse-card {
+        background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px;
+        padding: 15px 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
     .pulse-icon { font-size: 20px; margin-bottom: 5px; }
-    .pulse-title { font-size: 11px; color: #888888; text-transform: uppercase; font-weight: bold; margin-bottom: 5px;}
-    .pulse-value { font-size: 18px; font-weight: bold; }
-    .agenda-card { background-color: #f8fafc; border-left: 5px solid #3b82f6; padding: 15px; margin-bottom: 10px; border-radius: 0 8px 8px 0; }
-    .agenda-card.urgente { border-left-color: #ef4444; background-color: #fef2f2; }
-    .cor-verde { color: #10b981; } .cor-azul { color: #3b82f6; } .cor-cinza { color: #6b7280; } .cor-vermelha { color: #ef4444; }
+    .pulse-title { font-size: 10px; color: #6b7280; text-transform: uppercase; font-weight: bold; }
+    .pulse-value { font-size: 16px; font-weight: 800; margin-top: 5px; }
+    
+    .cor-verde { color: #10b981; } .cor-azul { color: #3b82f6; } 
+    .cor-cinza { color: #4b5563; } .cor-vermelha { color: #ef4444; }
+    
+    /* Cabeçalho do App */
+    .app-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 0px; border-bottom: 1px solid #e5e7eb; margin-bottom: 20px;
+    }
+    .ms-badge {
+        background-color: #eff6ff; color: #1d4ed8; padding: 4px 8px;
+        border-radius: 4px; font-size: 10px; font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-with st.sidebar:
-    st.title("🧠 GestorHub")
-    st.write("Bem-vindo, Gestor!")
-    st.divider()
-    opcao_escolhida = st.radio("Navegação:",["📊 Dashboard", "📅 Agenda", "🎥 Reuniões", "🎫 Chamados", "⚙️ Day Pulse", "📝 Carga de Trabalho"])
-    st.divider()
-    if st.button("Sair (Logout)", use_container_width=True):
-        st.session_state["logado"] = False
-        st.rerun()
+# ==========================================
+# 🔐 LOGIN CORPORATIVO (Integração Microsoft)
+# ==========================================
+if "logado_ms" not in st.session_state:
+    st.session_state["logado_ms"] = False
 
-# ---------------------------------------------------------
-# 3. LÓGICA DE TELAS
-# ---------------------------------------------------------
+if not st.session_state["logado_ms"]:
+    st.write("<br><br><br>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>📱 GestorHub</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6b7280;'>Central de Gestão Inteligente</p>", unsafe_allow_html=True)
+    
+    st.write("")
+    st.info("🔒 Sistema restrito. Autentique-se com seu e-mail corporativo.")
+    
+    # Botão simulando o SSO da Microsoft
+    if st.button("🟩 Entrar com conta Microsoft", type="primary", use_container_width=True):
+        with st.spinner("Autenticando via Microsoft Entra ID..."):
+            time.sleep(2)
+            st.session_state["logado_ms"] = True
+            st.rerun()
+    st.stop()
 
-if opcao_escolhida == "📊 Dashboard":
-    st.title("📊 Visão Geral do Dia")
-    st.write("O que você precisa focar agora.")
-    st.info("🕒 **Próxima Reunião em 15 min:** Alinhamento de Produto | [🎥 Entrar no Teams](#)")
-    try:
-        df_tarefas = pd.read_csv(url_google_sheets)
-        tarefas_pendentes = len(df_tarefas[df_tarefas['Concluido'] == 'FALSO'])
-    except:
-        tarefas_pendentes = "Erro"
+# ==========================================
+# 📱 CABEÇALHO DO APLICATIVO
+# ==========================================
+st.markdown("""
+<div class="app-header">
+    <h3 style="margin:0;">GestorHub</h3>
+    <span class="ms-badge">🟢 Conta Microsoft Vinculada</span>
+</div>
+""", unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Reuniões Restantes", "2", "-2 concluídas", delta_color="normal")
-    col2.metric("SLA de Chamados", "98%", "Atenção", delta_color="off")
-    col3.metric("Tarefas Pendentes", tarefas_pendentes, "Base atualizada", delta_color="normal")
+# NAVEGAÇÃO NATIVA MOBILE (Abas Superiores)
+aba_hoje, aba_chamados, aba_reunioes = st.tabs(["🏠 Início", "🎫 Chamados", "🎥 tl;dv"])
+
+# ==========================================
+# 🏠 ABA 1: TELA INICIAL (Agenda MS + Pulse)
+# ==========================================
+with aba_hoje:
+    st.markdown("#### 📅 Sua Agenda Hoje")
+    st.caption("Sincronizado via Microsoft Graph API")
+    
+    st.info("**Próximo Evento:** Comitê de Mudanças (10:00 - 10:45)")
+    st.success("**Reuniões Restantes:** 3 reuniões no MS Teams.")
     
     st.divider()
-    col_alertas, col_resumo = st.columns(2)
-    with col_alertas:
-        st.subheader("⚠️ Alertas Prioritários")
-        st.error("🚨 **Atraso Crítico:** Chamado #1042 rompeu o SLA.")
-        st.warning("👤 **Sobrecarga:** A analista 'Ana' possui 3 tarefas de Alta Prioridade acumuladas.")
-    with col_resumo:
-        st.subheader("💡 Último Insight da IA")
-        st.success("**CAB (Comitê de Mudanças):** Atualização do BD do ERP Aprovada para Domingo às 02h. Risco baixo.")
+    
+    st.markdown("#### 💓 Day Pulse")
+    st.caption("Baseado no seu calendário do Outlook")
+    st.markdown("""
+        <div class="pulse-grid">
+            <div class="pulse-card"><div class="pulse-icon">💓</div><div class="pulse-title">RITMO</div><div class="pulse-value cor-verde">Leve</div></div>
+            <div class="pulse-card"><div class="pulse-icon">📅</div><div class="pulse-title">EVENTOS</div><div class="pulse-value cor-azul">4</div></div>
+            <div class="pulse-card"><div class="pulse-icon">🕒</div><div class="pulse-title">OCUPADO</div><div class="pulse-value cor-cinza">3h 30m</div></div>
+            <div class="pulse-card"><div class="pulse-icon">☀️</div><div class="pulse-title">LIVRE</div><div class="pulse-value cor-verde">4h 30m</div></div>
+            <div class="pulse-card"><div class="pulse-icon">🏁</div><div class="pulse-title">TÉRMINO</div><div class="pulse-value cor-vermelha">18:00</div></div>
+        </div>
+    """, unsafe_allow_html=True)
 
-elif opcao_escolhida == "📅 Agenda":
-    st.title("📅 Sua Agenda")
-    col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-    col_kpi1.metric("Tempo em Reuniões", "4h 30m", "50% do dia", delta_color="inverse")
-    col_kpi2.metric("Tempo de Foco (Livre)", "3h 30m")
-    col_kpi3.metric("Convites Pendentes", "1")
-    st.divider()
-    st.markdown('<div class="agenda-card urgente"><h4 style="margin:0; color:#ef4444;">14:00 - 15:30 | Alinhamento de Produto</h4></div>', unsafe_allow_html=True)
-
-elif opcao_escolhida == "🎥 Reuniões":
-    st.title("🎥 Inteligência de Reuniões")
-    texto_reuniao = st.text_area("Cole aqui a transcrição bruta do Comitê de Mudanças (CAB):", height=150)
-    if st.button("✨ Analisar Comitê com IA", type="primary"):
-        if texto_reuniao != "":
-            with st.spinner("Analisando impactos, aprovações e janelas... ⏳"):
-                time.sleep(2)
-                st.success("✨ Análise do Comitê de Mudanças concluída!")
-                aba1, aba2, aba3 = st.tabs(["📝 Resumo", "⚖️ GMUDs", "✅ Plano de Ação"])
-                with aba1: st.write("Foram avaliadas 2 requisições de mudança (GMUDs)...")
-                with aba2: st.success("✔️ **APROVADO: Atualização do BD do ERP**")
-                with aba3: st.checkbox("Agendar janela de manutenção para Domingo às 02h")
-
-elif opcao_escolhida == "🎫 Chamados":
-    st.title("🎫 Chamados")
-    st.divider()
+# ==========================================
+# 🎫 ABA 2: POWER BI (Chamados)
+# ==========================================
+with aba_chamados:
+    st.markdown("#### 🎫 Central de Chamados")
+    st.caption("Acesso unificado via Power BI SSO")
+    
+    # URL do Power BI
     seu_link_power_bi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
     
-    # ⚠️ AQUI ESTÁ A MUDANÇA DO TAMANHO
-    # Aumentei a largura (width) para 1400 e a altura (height) para 850
-    components.iframe(seu_link_power_bi, width=1400, height=850, scrolling=True)
+    # Renderização Mobile-Friendly (100% da tela)
+    components.iframe(seu_link_power_bi, width="100%", height=450, scrolling=True)
+    
+    st.button("🔄 Sincronizar Dados", use_container_width=True)
 
-elif opcao_escolhida == "⚙️ Day Pulse":
-    st.title("💓 Day Pulse")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1: st.markdown('<div class="pulse-card"><div class="pulse-icon">💓</div><div class="pulse-title">RITMO</div><div class="pulse-value cor-verde">Leve</div></div>', unsafe_allow_html=True)
-    with col2: st.markdown('<div class="pulse-card"><div class="pulse-icon">📅</div><div class="pulse-title">EVENTOS</div><div class="pulse-value cor-azul">3</div></div>', unsafe_allow_html=True)
-    with col3: st.markdown('<div class="pulse-card"><div class="pulse-icon">🕒</div><div class="pulse-title">OCUPADO</div><div class="pulse-value cor-cinza">2h 30m</div></div>', unsafe_allow_html=True)
-    with col4: st.markdown('<div class="pulse-card"><div class="pulse-icon">☀️</div><div class="pulse-title">LIVRE</div><div class="pulse-value cor-verde">5h 30m</div></div>', unsafe_allow_html=True)
-    with col5: st.markdown('<div class="pulse-card"><div class="pulse-icon">🏁</div><div class="pulse-title">TÉRMINO</div><div class="pulse-value cor-vermelha">18:00</div></div>', unsafe_allow_html=True)
+# ==========================================
+# 🎥 ABA 3: RESUMOS TL;DV (Categorizados)
+# ==========================================
+with aba_reunioes:
+    st.markdown("#### 🎥 Resumos Inteligentes")
+    st.caption("Extraído automaticamente das reuniões do MS Teams via tl;dv")
+    
+    # Card de Reunião 1
+    with st.container(border=True):
+        st.markdown("**Comitê de Mudanças (CAB)**")
+        st.markdown("<span style='font-size:12px; color:gray;'>Hoje, 10:00 • MS Teams</span>", unsafe_allow_html=True)
+        
+        # Categorias como você pediu!
+        cat1, cat2, cat3 = st.tabs(["📝 Resumo", "🎯 Decisões", "✅ Tarefas"])
+        with cat1:
+            st.write("A equipe aprovou a atualização do BD do ERP. A migração do servidor de e-mails foi rejeitada por falta de testes de segurança.")
+        with cat2:
+            st.success("✔️ Aprovado: Atualização BD ERP")
+            st.error("❌ Rejeitado: Migração E-mails")
+        with cat3:
+            st.checkbox("Agendar janela do BD (Carlos)")
+            st.checkbox("Refazer testes de segurança (João)")
+            
+        st.button("🔗 Ver Vídeo Completo (tl;dv)", key="btn_tldv1", use_container_width=True)
 
-elif opcao_escolhida == "📝 Carga de Trabalho":
-    st.title("📝 Tarefas da Equipe")
-    try:
-        dados_da_planilha = pd.read_csv(url_google_sheets)
-        if 'Concluido' in dados_da_planilha.columns:
-            dados_da_planilha['Concluido'] = dados_da_planilha['Concluido'].replace({'FALSO': False, 'VERDADEIRO': True})
-        st.data_editor(dados_da_planilha, hide_index=True, use_container_width=True, column_config={"Concluido": st.column_config.CheckboxColumn("Concluído?")})
-    except Exception as e:
-        st.error(f"Erro ao conectar com a planilha.")
+    st.write("")
+    
+    # Card de Reunião 2
+    with st.container(border=True):
+        st.markdown("**Alinhamento de Produto**")
+        st.markdown("<span style='font-size:12px; color:gray;'>Ontem, 14:00 • MS Teams</span>", unsafe_allow_html=True)
+        
+        cat4, cat5, cat6 = st.tabs(["📝 Resumo", "🎯 Decisões", "✅ Tarefas"])
+        with cat4:
+            st.write("Definição das prioridades da sprint atual com foco em correções.")
+        with cat5:
+            st.info("Prioridade: Correção de Bugs de Login")
+        with cat6:
+            st.checkbox("Atualizar repositório mobile (Ana)")
+            
+        st.button("🔗 Ver Vídeo Completo (tl;dv)", key="btn_tldv2", use_container_width=True)
+
+# Botão de Logout no rodapé
+st.write("<br><br>", unsafe_allow_html=True)
+if st.button("Sair da Conta Microsoft", use_container_width=True):
+    st.session_state["logado_ms"] = False
+    st.rerun()
