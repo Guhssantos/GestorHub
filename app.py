@@ -13,7 +13,7 @@ CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
 CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
 TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-REDIRECT_URI = "https://gestor-app.streamlit.app" # Para onde volta após o login
+REDIRECT_URI = "http://localhost:8501" # Para onde volta após o login
 SCOPE = ["User.Read", "Calendars.Read"]
 
 def get_msal_app():
