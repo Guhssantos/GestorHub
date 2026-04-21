@@ -13,26 +13,25 @@ st.set_page_config(page_title="GestorHub App", page_icon="📱", layout="centere
 # ==========================================
 CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
 CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
-TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+
+# ⚠️ A MUDANÇA PRINCIPAL ESTÁ AQUI ("common" no lugar do Tenant ID)
+AUTHORITY = "https://login.microsoftonline.com/common"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
-SCOPE = ["User.Read", "Calendars.Read"]
+SCOPE =["User.Read", "Calendars.Read"]
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
 
 # ==========================================
-# 🧠 FUNÇÃO: BUSCAR DADOS DA MICROSOFT
+# 🧠 FUNÇÃO: BUSCAR DADOS DA MICROSOFT (Com Detetive)
 # ==========================================
 def buscar_agenda_microsoft(token):
-    # Definindo fuso horário do Brasil
     hoje = datetime.utcnow() - timedelta(hours=3) 
     inicio_dia = hoje.replace(hour=0, minute=0, second=0).strftime('%Y-%m-%dT%H:%M:%S')
     fim_dia = hoje.replace(hour=23, minute=59, second=59).strftime('%Y-%m-%dT%H:%M:%S')
     
     url = f"https://graph.microsoft.com/v1.0/me/calendarView?startDateTime={inicio_dia}&endDateTime={fim_dia}&$orderby=start/dateTime"
     
-    # ⚠️ AVISANDO A MICROSOFT QUE ESTAMOS NO BRASIL
     headers = {
         'Authorization': f'Bearer {token}',
         'Prefer': 'outlook.timezone="America/Sao_Paulo"' 
@@ -40,11 +39,11 @@ def buscar_agenda_microsoft(token):
     
     resposta = requests.get(url, headers=headers)
     
-    # Detector de Erros Silenciosos
     if resposta.status_code == 200:
         return resposta.json().get('value',[])
     else:
-        st.error(f"⚠️ Erro de Permissão da Microsoft: {resposta.status_code} - A equipe de TI precisa autorizar a leitura do calendário.")
+        # ⚠️ DETETIVE DE ERROS: Mostra a resposta real da Microsoft na tela
+        st.error(f"⚠️ Detalhe do Erro da Microsoft ({resposta.status_code}): {resposta.text}")
         return[]
 
 # ==========================================
@@ -89,7 +88,7 @@ if not st.session_state["logado_ms"]:
     st.markdown("<h1 style='text-align: center;'>📱 GestorHub</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #6b7280;'>Central de Gestão Inteligente</p>", unsafe_allow_html=True)
     st.write("")
-    st.info("🔒 Autentique-se com seu e-mail corporativo Microsoft.")
+    st.info("🔒 Autentique-se com sua conta Microsoft.")
     msal_app = get_msal_app()
     auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
     st.link_button("🟩 Entrar com conta Microsoft", auth_url, type="primary", use_container_width=True)
@@ -107,7 +106,6 @@ termino_do_dia = "--:--"
 
 if total_eventos > 0:
     for evento in eventos_hoje:
-        # A API devolve o horário no fuso do Brasil porque pedimos no "Header"
         inicio = pd.to_datetime(evento['start']['dateTime']).replace(tzinfo=None)
         fim = pd.to_datetime(evento['end']['dateTime']).replace(tzinfo=None)
         
@@ -155,12 +153,11 @@ with aba_hoje:
     with col_titulo:
         st.markdown("#### 📅 Sua Agenda Hoje")
     with col_botao:
-        # Botão para forçar a leitura do calendário na hora
         if st.button("🔄 Atualizar", use_container_width=True):
             st.rerun()
 
     if total_eventos == 0:
-        st.success("🎉 Sua agenda está livre hoje! (Adicione uma reunião no Outlook e clique em Atualizar)")
+        st.success("🎉 Sua agenda está livre hoje! (Adicione uma reunião e clique em Atualizar)")
     else:
         st.info(f"**Próxima Reunião:**\n\n {proximo_evento_nome}")
         
@@ -195,11 +192,18 @@ with aba_chamados:
 # ==========================================
 with aba_reunioes:
     st.markdown("#### 🎥 Resumos Inteligentes")
+    st.caption("Demonstração (Integração futura API tl;dv)")
     with st.container(border=True):
         st.markdown("**Comitê de Mudanças (CAB)**")
+        st.markdown("<span style='font-size:12px; color:gray;'>Hoje, 10:00 • MS Teams</span>", unsafe_allow_html=True)
         cat1, cat2, cat3 = st.tabs(["📝 Resumo", "🎯 Decisões", "✅ Tarefas"])
-        with cat1: st.write("A equipe aprovou a atualização do BD do ERP.")
+        with cat1: st.write("A equipe aprovou a atualização do BD do ERP. Migração do e-mail rejeitada.")
+        with cat2: st.success("✔️ Aprovado: Atualização BD ERP")
+        with cat3: st.checkbox("Agendar janela do BD (Carlos)")
 
+# ==========================================
+# LOGOUT
+# ==========================================
 st.write("<br><br>", unsafe_allow_html=True)
 if st.button("🚪 Sair da Conta Microsoft", use_container_width=True):
     st.session_state.clear()
