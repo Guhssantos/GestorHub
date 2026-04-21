@@ -13,8 +13,10 @@ CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
 CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
 TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-REDIRECT_URI = "http://localhost:8501" # Para onde volta após o login
-SCOPE = ["User.Read", "Calendars.Read"]
+
+# URL oficial do seu aplicativo na nuvem
+REDIRECT_URI = "https://gestor-app.streamlit.app" 
+SCOPE =["User.Read", "Calendars.Read"]
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
@@ -44,7 +46,7 @@ if "logado_ms" not in st.session_state:
 if "access_token" not in st.session_state:
     st.session_state["access_token"] = None
 
-# A MÁGICA: O app verifica se a Microsoft devolveu o código na URL
+# O app verifica se a Microsoft devolveu o código na URL
 query_params = st.query_params
 if "code" in query_params and not st.session_state["logado_ms"]:
     code = query_params["code"]
@@ -69,9 +71,9 @@ if not st.session_state["logado_ms"]:
     msal_app = get_msal_app()
     auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
     
-    # Botão que redireciona o usuário para o site de login da Microsoft
+    # ⚠️ A MUDANÇA ESTÁ AQUI: target="_top" em vez de "_self"
     st.markdown(f'''
-        <a href="{auth_url}" target="_self" style="text-decoration: none;">
+        <a href="{auth_url}" target="_top" style="text-decoration: none;">
             <div style="background-color: #2F2F2F; color: white; padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; border: 1px solid #000; font-family: sans-serif;">
                 🟩 Entrar com conta Microsoft
             </div>
@@ -128,11 +130,11 @@ with aba_reunioes:
         st.markdown("**Comitê de Mudanças (CAB)**")
         st.markdown("<span style='font-size:12px; color:gray;'>Hoje, 10:00 • MS Teams</span>", unsafe_allow_html=True)
         cat1, cat2, cat3 = st.tabs(["📝 Resumo", "🎯 Decisões", "✅ Tarefas"])
-        with cat1: st.write("A equipe aprovou a atualização do BD do ERP...")
+        with cat1: st.write("A equipe aprovou a atualização do BD do ERP. Migração do e-mail rejeitada.")
         with cat2: st.success("✔️ Aprovado: Atualização BD ERP")
         with cat3: st.checkbox("Agendar janela do BD (Carlos)")
 
-# Botão de Logout real
+# Botão de Logout
 st.write("<br><br>", unsafe_allow_html=True)
 if st.button("Sair da Conta Microsoft", use_container_width=True):
     st.session_state["logado_ms"] = False
