@@ -25,19 +25,27 @@ def get_msal_app():
 # 🧠 FUNÇÃO: BUSCAR DADOS DA MICROSOFT
 # ==========================================
 def buscar_agenda_microsoft(token):
-    # Definindo início e fim do dia atual
-    hoje = datetime.utcnow() - timedelta(hours=3) # Fuso do Brasil aprox.
+    # Definindo fuso horário do Brasil
+    hoje = datetime.utcnow() - timedelta(hours=3) 
     inicio_dia = hoje.replace(hour=0, minute=0, second=0).strftime('%Y-%m-%dT%H:%M:%S')
     fim_dia = hoje.replace(hour=23, minute=59, second=59).strftime('%Y-%m-%dT%H:%M:%S')
     
-    # Fazendo a pergunta para a Microsoft Graph API
     url = f"https://graph.microsoft.com/v1.0/me/calendarView?startDateTime={inicio_dia}&endDateTime={fim_dia}&$orderby=start/dateTime"
-    headers = {'Authorization': f'Bearer {token}'}
+    
+    # ⚠️ AVISANDO A MICROSOFT QUE ESTAMOS NO BRASIL
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Prefer': 'outlook.timezone="America/Sao_Paulo"' 
+    }
     
     resposta = requests.get(url, headers=headers)
+    
+    # Detector de Erros Silenciosos
     if resposta.status_code == 200:
-        return resposta.json().get('value', [])
-    return[]
+        return resposta.json().get('value',[])
+    else:
+        st.error(f"⚠️ Erro de Permissão da Microsoft: {resposta.status_code} - A equipe de TI precisa autorizar a leitura do calendário.")
+        return[]
 
 # ==========================================
 # 🎨 CSS RESPONSIVO
@@ -53,7 +61,7 @@ st.markdown("""
     .cor-verde { color: #10b981; } .cor-azul { color: #3b82f6; } .cor-cinza { color: #4b5563; } .cor-vermelha { color: #ef4444; }
     .app-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0px; border-bottom: 1px solid #e5e7eb; margin-bottom: 20px; }
     .ms-badge { background-color: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-    .evento-lista { border-left: 3px solid #3b82f6; padding-left: 10px; margin-bottom: 10px; }
+    .evento-lista { border-left: 3px solid #3b82f6; padding-left: 10px; margin-bottom: 10px; font-size: 14px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -90,53 +98,42 @@ if not st.session_state["logado_ms"]:
 # ==========================================
 # ⚙️ PROCESSANDO OS DADOS REAIS DA MICROSOFT
 # ==========================================
-# Puxa os eventos da API
 eventos_hoje = buscar_agenda_microsoft(st.session_state["access_token"])
 
-# Fazendo os cálculos do Day Pulse
 total_eventos = len(eventos_hoje)
 minutos_ocupados = 0
 proximo_evento_nome = "Nenhum evento restante"
-termino_do_dia = "18:00"
+termino_do_dia = "--:--"
 
-# Se houver reuniões, vamos calcular os detalhes
 if total_eventos > 0:
     for evento in eventos_hoje:
-        # Convertendo as datas da Microsoft usando Pandas (robusto)
-        inicio = pd.to_datetime(evento['start']['dateTime'])
-        fim = pd.to_datetime(evento['end']['dateTime'])
+        # A API devolve o horário no fuso do Brasil porque pedimos no "Header"
+        inicio = pd.to_datetime(evento['start']['dateTime']).replace(tzinfo=None)
+        fim = pd.to_datetime(evento['end']['dateTime']).replace(tzinfo=None)
         
-        # Somando tempo ocupado
         duracao = (fim - inicio).total_seconds() / 60
         minutos_ocupados += duracao
     
-    # Pegando a última reunião para saber quando o dia "acaba"
-    ultimo_evento_fim = pd.to_datetime(eventos_hoje[-1]['end']['dateTime'])
+    ultimo_evento_fim = pd.to_datetime(eventos_hoje[-1]['end']['dateTime']).replace(tzinfo=None)
     termino_do_dia = ultimo_evento_fim.strftime("%H:%M")
-    
-    # Pegando o primeiro evento
     proximo_evento_nome = eventos_hoje[0]['subject']
 
-# Formatação de horas
 horas_ocupadas = int(minutos_ocupados // 60)
 min_ocupados_rest = int(minutos_ocupados % 60)
 texto_ocupado = f"{horas_ocupadas}h {min_ocupados_rest}m"
 
-# Assumindo uma jornada de 8h (480 minutos) para calcular o tempo livre
 minutos_livres = 480 - minutos_ocupados
 if minutos_livres < 0: minutos_livres = 0
 horas_livres = int(minutos_livres // 60)
 min_livres_rest = int(minutos_livres % 60)
 texto_livre = f"{horas_livres}h {min_livres_rest}m"
 
-# Calculando o "Ritmo" (Leve, Moderado, Intenso)
 if total_eventos <= 2:
     ritmo, cor_ritmo = "Leve", "cor-verde"
 elif total_eventos <= 5:
     ritmo, cor_ritmo = "Moderado", "cor-azul"
 else:
     ritmo, cor_ritmo = "Intenso", "cor-vermelha"
-
 
 # ==========================================
 # 📱 CABEÇALHO E ABAS
@@ -151,29 +148,30 @@ st.markdown("""
 aba_hoje, aba_chamados, aba_reunioes = st.tabs(["🏠 Início", "🎫 Chamados", "🎥 tl;dv"])
 
 # ==========================================
-# 🏠 ABA 1: TELA INICIAL (COM DADOS REAIS)
+# 🏠 ABA 1: TELA INICIAL
 # ==========================================
 with aba_hoje:
-    st.markdown("#### 📅 Sua Agenda Hoje")
-    st.caption("Conectado ao Microsoft 365 (Em tempo real)")
-    
+    col_titulo, col_botao = st.columns([7, 3])
+    with col_titulo:
+        st.markdown("#### 📅 Sua Agenda Hoje")
+    with col_botao:
+        # Botão para forçar a leitura do calendário na hora
+        if st.button("🔄 Atualizar", use_container_width=True):
+            st.rerun()
+
     if total_eventos == 0:
-        st.success("🎉 Sua agenda está livre hoje!")
+        st.success("🎉 Sua agenda está livre hoje! (Adicione uma reunião no Outlook e clique em Atualizar)")
     else:
-        st.info(f"**Próximo (ou primeiro) Evento:**\n\n {proximo_evento_nome}")
+        st.info(f"**Próxima Reunião:**\n\n {proximo_evento_nome}")
         
-        # Mostrando a lista rápida de reuniões
-        with st.expander("Ver lista de reuniões"):
+        with st.expander("Ver todas as reuniões de hoje", expanded=True):
             for ev in eventos_hoje:
-                hora_ini = pd.to_datetime(ev['start']['dateTime']).strftime("%H:%M")
+                hora_ini = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
                 st.markdown(f"<div class='evento-lista'><b>{hora_ini}</b> - {ev['subject']}</div>", unsafe_allow_html=True)
 
     st.divider()
     
     st.markdown("#### 💓 Day Pulse")
-    st.caption("Calculado dinamicamente com base nas suas reuniões")
-    
-    # Injetando as variáveis calculadas no HTML do Day Pulse!
     st.markdown(f"""
         <div class="pulse-grid">
             <div class="pulse-card"><div class="pulse-icon">💓</div><div class="pulse-title">RITMO</div><div class="pulse-value {cor_ritmo}">{ritmo}</div></div>
@@ -197,20 +195,12 @@ with aba_chamados:
 # ==========================================
 with aba_reunioes:
     st.markdown("#### 🎥 Resumos Inteligentes")
-    st.caption("Demonstração (Integração futura API tl;dv)")
     with st.container(border=True):
         st.markdown("**Comitê de Mudanças (CAB)**")
-        st.markdown("<span style='font-size:12px; color:gray;'>Hoje, 10:00 • MS Teams</span>", unsafe_allow_html=True)
         cat1, cat2, cat3 = st.tabs(["📝 Resumo", "🎯 Decisões", "✅ Tarefas"])
-        with cat1: st.write("A equipe aprovou a atualização do BD do ERP. Migração do e-mail rejeitada.")
-        with cat2: st.success("✔️ Aprovado: Atualização BD ERP")
-        with cat3: st.checkbox("Agendar janela do BD (Carlos)")
+        with cat1: st.write("A equipe aprovou a atualização do BD do ERP.")
 
-# ==========================================
-# LOGOUT
-# ==========================================
 st.write("<br><br>", unsafe_allow_html=True)
 if st.button("🚪 Sair da Conta Microsoft", use_container_width=True):
-    st.session_state["logado_ms"] = False
-    st.session_state["access_token"] = None
+    st.session_state.clear()
     st.rerun()
