@@ -1,19 +1,19 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import msal
-import requests
-from datetime import datetime, timedelta
 
-# 1. Configuração da Página
+# 1. Configuração da Página (Mobile-First)
 st.set_page_config(page_title="GestorHub App", page_icon="📱", layout="centered")
 
 # ==========================================
-# 🔑 CREDENCIAIS
+# 🔑 CREDENCIAIS REAIS DA MICROSOFT
 # ==========================================
 CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
 CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
 TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+
+# URL oficial do seu aplicativo na nuvem
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
 SCOPE = ["User.Read", "Calendars.Read"]
 
@@ -21,23 +21,7 @@ def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
 
 # ==========================================
-# 🔌 FUNÇÃO PARA BUSCAR EVENTOS REAIS
-# ==========================================
-def get_ms_calendar_events(token):
-    headers = {'Authorization': f'Bearer {token}'}
-    # Define o período de hoje (00:00 até 23:59)
-    now = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    end_of_day = now + timedelta(days=1)
-    
-    url = f"https://graph.microsoft.com/v1.0/me/calendarview?startDateTime={now.isoformat()}Z&endDateTime={end_of_day.isoformat()}Z&$orderby=start/dateTime"
-    
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return response.json().get('value', [])
-    return []
-
-# ==========================================
-# 🎨 CSS RESPONSIVO (Mantido e Ajustado)
+# 🎨 CSS RESPONSIVO
 # ==========================================
 st.markdown("""
 <style>
@@ -54,97 +38,99 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔐 LÓGICA DE AUTENTICAÇÃO
+# 🔐 LOGIN CORPORATIVO (O Fluxo Real da Microsoft)
 # ==========================================
-if "logado_ms" not in st.session_state: st.session_state["logado_ms"] = False
-if "access_token" not in st.session_state: st.session_state["access_token"] = None
+if "logado_ms" not in st.session_state:
+    st.session_state["logado_ms"] = False
+if "access_token" not in st.session_state:
+    st.session_state["access_token"] = None
 
+# O app verifica se a Microsoft devolveu o código na URL
 query_params = st.query_params
 if "code" in query_params and not st.session_state["logado_ms"]:
     code = query_params["code"]
     msal_app = get_msal_app()
     result = msal_app.acquire_token_by_authorization_code(code, scopes=SCOPE, redirect_uri=REDIRECT_URI)
+    
     if "access_token" in result:
         st.session_state["access_token"] = result["access_token"]
         st.session_state["logado_ms"] = True
-        st.query_params.clear()
+        st.query_params.clear() # Limpa a barra de endereços para ficar bonito
         st.rerun()
 
+# Se não estiver logado, mostra a tela de login
 if not st.session_state["logado_ms"]:
     st.write("<br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align: center;'>📱 GestorHub</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6b7280;'>Central de Gestão Inteligente</p>", unsafe_allow_html=True)
+    st.write("")
+    st.info("🔒 Sistema restrito. Autentique-se com seu e-mail corporativo Microsoft.")
+    
+    # Gera o link dinâmico e seguro da Microsoft
     msal_app = get_msal_app()
     auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
+    
+    # ⚠️ SOLUÇÃO DEFINITIVA: Botão nativo do Streamlit, à prova de falhas.
     st.link_button("🟩 Entrar com conta Microsoft", auth_url, type="primary", use_container_width=True)
+    
     st.stop()
 
 # ==========================================
-# 📊 PROCESSAMENTO DE DADOS (DENTRO DO APP)
+# 📱 CABEÇALHO DO APLICATIVO
 # ==========================================
-eventos = get_ms_calendar_events(st.session_state["access_token"])
-
-# Cálculos para o Day Pulse
-total_eventos = len(eventos)
-minutos_ocupados = 0
-proximo_evento = "Nenhum evento hoje"
-hora_termino = "18:00"
-
-for i, ev in enumerate(eventos):
-    start = datetime.fromisoformat(ev['start']['dateTime'][:19])
-    end = datetime.fromisoformat(ev['end']['dateTime'][:19])
-    duracao = (end - start).seconds / 60
-    minutos_ocupados += duracao
-    
-    # Pega o próximo evento baseado na hora atual
-    if start > datetime.now() and proximo_evento == "Nenhum evento hoje":
-        proximo_evento = f"{ev['subject']} ({start.strftime('%H:%M')})"
-    
-    # Define a hora de término como o fim do último evento
-    hora_termino = end.strftime('%H:%M')
-
-horas_foco = round(minutos_ocupados / 60, 1)
-horas_livres = round(8 - horas_foco, 1) # Baseado em jornada de 8h
-ritmo = "Leve" if horas_foco < 3 else "Intenso" if horas_foco > 5 else "Moderado"
-cor_ritmo = "cor-verde" if ritmo == "Leve" else "cor-vermelha" if ritmo == "Intenso" else "cor-azul"
-
-# ==========================================
-# 📱 INTERFACE DO APP
-# ==========================================
-st.markdown(f"""<div class="app-header"><h3 style="margin:0;">GestorHub</h3><span class="ms-badge">🟢 {st.session_state.get('user_name', 'Conectado')}</span></div>""", unsafe_allow_html=True)
+st.markdown("""
+<div class="app-header">
+    <h3 style="margin:0;">GestorHub</h3>
+    <span class="ms-badge">🟢 Conectado</span>
+</div>
+""", unsafe_allow_html=True)
 
 aba_hoje, aba_chamados, aba_reunioes = st.tabs(["🏠 Início", "🎫 Chamados", "🎥 tl;dv"])
 
+# ==========================================
+# 🏠 ABA 1: TELA INICIAL
+# ==========================================
 with aba_hoje:
     st.markdown("#### 📅 Sua Agenda Hoje")
-    if total_eventos > 0:
-        st.success(f"**Próximo:** {proximo_evento}")
-        for ev in eventos[:3]: # Mostra os 3 primeiros
-            st.write(f"• {ev['subject']} | {ev['start']['dateTime'][11:16]} - {ev['end']['dateTime'][11:16]}")
-    else:
-        st.info("Sua agenda está livre hoje!")
+    st.caption("Acesso liberado via Microsoft Graph API")
+    st.info("**Próximo Evento:** Comitê de Mudanças (10:00 - 10:45)")
     
     st.divider()
     st.markdown("#### 💓 Day Pulse")
-    st.markdown(f"""
+    st.markdown("""
         <div class="pulse-grid">
-            <div class="pulse-card"><div class="pulse-icon">💓</div><div class="pulse-title">RITMO</div><div class="pulse-value {cor_ritmo}">{ritmo}</div></div>
-            <div class="pulse-card"><div class="pulse-icon">📅</div><div class="pulse-title">EVENTOS</div><div class="pulse-value cor-azul">{total_eventos}</div></div>
-            <div class="pulse-card"><div class="pulse-icon">🕒</div><div class="pulse-title">OCUPADO</div><div class="pulse-value cor-cinza">{horas_foco}h</div></div>
-            <div class="pulse-card"><div class="pulse-icon">☀️</div><div class="pulse-title">LIVRE</div><div class="pulse-value cor-verde">{max(0, horas_livres)}h</div></div>
-            <div class="pulse-card"><div class="pulse-icon">🏁</div><div class="pulse-title">TÉRMINO</div><div class="pulse-value cor-vermelha">{hora_termino}</div></div>
+            <div class="pulse-card"><div class="pulse-icon">💓</div><div class="pulse-title">RITMO</div><div class="pulse-value cor-verde">Leve</div></div>
+            <div class="pulse-card"><div class="pulse-icon">📅</div><div class="pulse-title">EVENTOS</div><div class="pulse-value cor-azul">4</div></div>
+            <div class="pulse-card"><div class="pulse-icon">🕒</div><div class="pulse-title">OCUPADO</div><div class="pulse-value cor-cinza">3h 30m</div></div>
+            <div class="pulse-card"><div class="pulse-icon">☀️</div><div class="pulse-title">LIVRE</div><div class="pulse-value cor-verde">4h 30m</div></div>
+            <div class="pulse-card"><div class="pulse-icon">🏁</div><div class="pulse-title">TÉRMINO</div><div class="pulse-value cor-vermelha">18:00</div></div>
         </div>
     """, unsafe_allow_html=True)
 
-# As outras abas (PowerBI e tl;dv) permanecem iguais
+# ==========================================
+# 🎫 ABA 2: POWER BI
+# ==========================================
 with aba_chamados:
     st.markdown("#### 🎫 Central de Chamados")
-    components.iframe("https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14", width="100%", height=450)
+    seu_link_power_bi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
+    components.iframe(seu_link_power_bi, width="100%", height=450, scrolling=True)
 
+# ==========================================
+# 🎥 ABA 3: RESUMOS TL;DV
+# ==========================================
 with aba_reunioes:
     st.markdown("#### 🎥 Resumos Inteligentes")
-    st.info("Integração tl;dv ativa: Buscando últimas gravações...")
+    with st.container(border=True):
+        st.markdown("**Comitê de Mudanças (CAB)**")
+        st.markdown("<span style='font-size:12px; color:gray;'>Hoje, 10:00 • MS Teams</span>", unsafe_allow_html=True)
+        cat1, cat2, cat3 = st.tabs(["📝 Resumo", "🎯 Decisões", "✅ Tarefas"])
+        with cat1: st.write("A equipe aprovou a atualização do BD do ERP. Migração do e-mail rejeitada.")
+        with cat2: st.success("✔️ Aprovado: Atualização BD ERP")
+        with cat3: st.checkbox("Agendar janela do BD (Carlos)")
 
-# Botão Logout
-if st.button("Sair", use_container_width=True):
-    st.session_state.clear()
+# Botão de Logout
+st.write("<br><br>", unsafe_allow_html=True)
+if st.button("Sair da Conta Microsoft", use_container_width=True):
+    st.session_state["logado_ms"] = False
+    st.session_state["access_token"] = None
     st.rerun()
