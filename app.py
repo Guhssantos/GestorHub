@@ -1,7 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import msal
-import requests
 
 # 1. Configuração da Página (Mobile-First)
 st.set_page_config(page_title="GestorHub App", page_icon="📱", layout="centered")
@@ -16,7 +15,7 @@ AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 
 # URL oficial do seu aplicativo na nuvem
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
-SCOPE =["User.Read", "Calendars.Read"]
+SCOPE = ["User.Read", "Calendars.Read"]
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
@@ -71,14 +70,9 @@ if not st.session_state["logado_ms"]:
     msal_app = get_msal_app()
     auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
     
-    # ⚠️ A MUDANÇA ESTÁ AQUI: target="_top" em vez de "_self"
-    st.markdown(f'''
-        <a href="{auth_url}" target="_top" style="text-decoration: none;">
-            <div style="background-color: #2F2F2F; color: white; padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; border: 1px solid #000; font-family: sans-serif;">
-                🟩 Entrar com conta Microsoft
-            </div>
-        </a>
-    ''', unsafe_allow_html=True)
+    # ⚠️ SOLUÇÃO DEFINITIVA: Botão nativo do Streamlit, à prova de falhas.
+    st.link_button("🟩 Entrar com conta Microsoft", auth_url, type="primary", use_container_width=True)
+    
     st.stop()
 
 # ==========================================
