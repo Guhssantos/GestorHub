@@ -13,11 +13,12 @@ st.set_page_config(page_title="GestorHub App", page_icon="📱", layout="centere
 # ==========================================
 CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
 CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
+TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
 
-# ⚠️ A MUDANÇA PRINCIPAL ESTÁ AQUI ("common" no lugar do Tenant ID)
-AUTHORITY = "https://login.microsoftonline.com/common"
+# VOLTAMOS PARA A PORTA CORPORATIVA SEGURA (TENANT_ID)
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
-SCOPE =["User.Read", "Calendars.Read"]
+SCOPE = ["User.Read", "Calendars.Read"]
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
