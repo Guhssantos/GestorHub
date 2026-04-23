@@ -16,13 +16,15 @@ CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
 TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
-SCOPE = ["User.Read", "Calendars.Read"]
+
+# ⚠️ AGORA TEMOS PERMISSÃO DE LEITURA E ESCRITA
+SCOPE =["User.Read", "Calendars.ReadWrite"]
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
 
 # ==========================================
-# 🧠 FUNÇÃO: BUSCAR DADOS DA MICROSOFT (Modo Apresentação)
+# 🧠 FUNÇÕES DA MICROSOFT GRAPH API
 # ==========================================
 def buscar_agenda_microsoft(token):
     hoje = datetime.utcnow() - timedelta(hours=3) 
@@ -30,35 +32,23 @@ def buscar_agenda_microsoft(token):
     fim_dia = hoje.replace(hour=23, minute=59, second=59).strftime('%Y-%m-%dT%H:%M:%S')
     
     url = f"https://graph.microsoft.com/v1.0/me/calendarView?startDateTime={inicio_dia}&endDateTime={fim_dia}&$orderby=start/dateTime"
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Prefer': 'outlook.timezone="America/Sao_Paulo"' 
-    }
+    headers = {'Authorization': f'Bearer {token}', 'Prefer': 'outlook.timezone="America/Sao_Paulo"'}
     
     resposta = requests.get(url, headers=headers)
-    
     if resposta.status_code == 200:
         return resposta.json().get('value',[])
     else:
-        # ⚠️ MODO APRESENTAÇÃO: Se der erro por falta de licença, injeta dados reais fictícios para o MVP brilhar.
-        ano_mes_dia = hoje.strftime('%Y-%m-%d')
-        return[
-            {
-                "subject": "Comitê de Mudanças (CAB)",
-                "start": {"dateTime": f"{ano_mes_dia}T10:00:00"},
-                "end": {"dateTime": f"{ano_mes_dia}T10:45:00"}
-            },
-            {
-                "subject": "Alinhamento de Produto",
-                "start": {"dateTime": f"{ano_mes_dia}T14:00:00"},
-                "end": {"dateTime": f"{ano_mes_dia}T14:30:00"}
-            },
-            {
-                "subject": "1-on-1 com a Equipe",
-                "start": {"dateTime": f"{ano_mes_dia}T16:00:00"},
-                "end": {"dateTime": f"{ano_mes_dia}T17:00:00"}
-            }
-        ]
+        st.error(f"Erro ao buscar agenda: {resposta.text}")
+        return[]
+
+def responder_reuniao(token, event_id, acao):
+    # acao pode ser 'accept' ou 'decline'
+    url = f"https://graph.microsoft.com/v1.0/me/events/{event_id}/{acao}"
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    payload = {"sendResponse": True} # Envia e-mail avisando o organizador
+    
+    resposta = requests.post(url, headers=headers, json=payload)
+    return resposta.status_code == 202
 
 # ==========================================
 # 🎨 CSS RESPONSIVO
@@ -74,7 +64,7 @@ st.markdown("""
     .cor-verde { color: #10b981; } .cor-azul { color: #3b82f6; } .cor-cinza { color: #4b5563; } .cor-vermelha { color: #ef4444; }
     .app-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0px; border-bottom: 1px solid #e5e7eb; margin-bottom: 20px; }
     .ms-badge { background-color: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-    .evento-lista { border-left: 3px solid #3b82f6; padding-left: 10px; margin-bottom: 10px; font-size: 14px;}
+    .evento-card { border: 1px solid #e5e7eb; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 15px; border-radius: 8px; background-color: #f9fafb;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -109,43 +99,33 @@ if not st.session_state["logado_ms"]:
     st.stop()
 
 # ==========================================
-# ⚙️ PROCESSANDO OS DADOS DA MICROSOFT
+# ⚙️ PROCESSANDO OS DADOS REAIS DA MICROSOFT
 # ==========================================
-eventos_hoje = buscar_agenda_microsoft(st.session_state["access_token"])
+token = st.session_state["access_token"]
+eventos_hoje = buscar_agenda_microsoft(token)
 
 total_eventos = len(eventos_hoje)
 minutos_ocupados = 0
-proximo_evento_nome = "Nenhum evento restante"
 termino_do_dia = "--:--"
 
 if total_eventos > 0:
     for evento in eventos_hoje:
         inicio = pd.to_datetime(evento['start']['dateTime']).replace(tzinfo=None)
         fim = pd.to_datetime(evento['end']['dateTime']).replace(tzinfo=None)
-        
-        duracao = (fim - inicio).total_seconds() / 60
-        minutos_ocupados += duracao
+        minutos_ocupados += (fim - inicio).total_seconds() / 60
     
-    ultimo_evento_fim = pd.to_datetime(eventos_hoje[-1]['end']['dateTime']).replace(tzinfo=None)
-    termino_do_dia = ultimo_evento_fim.strftime("%H:%M")
-    proximo_evento_nome = eventos_hoje[0]['subject']
+    termino_do_dia = pd.to_datetime(eventos_hoje[-1]['end']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
 
 horas_ocupadas = int(minutos_ocupados // 60)
 min_ocupados_rest = int(minutos_ocupados % 60)
 texto_ocupado = f"{horas_ocupadas}h {min_ocupados_rest}m"
 
-minutos_livres = 480 - minutos_ocupados
-if minutos_livres < 0: minutos_livres = 0
-horas_livres = int(minutos_livres // 60)
-min_livres_rest = int(minutos_livres % 60)
-texto_livre = f"{horas_livres}h {min_livres_rest}m"
+minutos_livres = 480 - minutos_ocupados if (480 - minutos_ocupados) > 0 else 0
+texto_livre = f"{int(minutos_livres // 60)}h {int(minutos_livres % 60)}m"
 
-if total_eventos <= 2:
-    ritmo, cor_ritmo = "Leve", "cor-verde"
-elif total_eventos <= 5:
-    ritmo, cor_ritmo = "Moderado", "cor-azul"
-else:
-    ritmo, cor_ritmo = "Intenso", "cor-vermelha"
+if total_eventos <= 2: ritmo, cor_ritmo = "Leve", "cor-verde"
+elif total_eventos <= 5: ritmo, cor_ritmo = "Moderado", "cor-azul"
+else: ritmo, cor_ritmo = "Intenso", "cor-vermelha"
 
 # ==========================================
 # 📱 CABEÇALHO E ABAS
@@ -160,7 +140,7 @@ st.markdown("""
 aba_hoje, aba_chamados, aba_reunioes = st.tabs(["🏠 Início", "🎫 Chamados", "🎥 tl;dv"])
 
 # ==========================================
-# 🏠 ABA 1: TELA INICIAL
+# 🏠 ABA 1: TELA INICIAL (Agenda Viva)
 # ==========================================
 with aba_hoje:
     col_titulo, col_botao = st.columns([7, 3])
@@ -171,14 +151,51 @@ with aba_hoje:
             st.rerun()
 
     if total_eventos == 0:
-        st.success("🎉 Sua agenda está livre hoje!")
+        st.success("🎉 Sua agenda está livre hoje! Aproveite o tempo de foco.")
     else:
-        st.info(f"**Próxima Reunião:**\n\n {proximo_evento_nome}")
-        
-        with st.expander("Ver todas as reuniões de hoje", expanded=True):
-            for ev in eventos_hoje:
-                hora_ini = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
-                st.markdown(f"<div class='evento-lista'><b>{hora_ini}</b> - {ev['subject']}</div>", unsafe_allow_html=True)
+        for ev in eventos_hoje:
+            hora_ini = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
+            hora_fim = pd.to_datetime(ev['end']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
+            titulo = ev['subject']
+            
+            # Buscando o link da reunião (Teams, Zoom, etc)
+            link_reuniao = None
+            if 'onlineMeeting' in ev and ev['onlineMeeting'] and 'joinUrl' in ev['onlineMeeting']:
+                link_reuniao = ev['onlineMeeting']['joinUrl']
+            elif 'onlineMeetingUrl' in ev and ev['onlineMeetingUrl']:
+                link_reuniao = ev['onlineMeetingUrl']
+                
+            # Identificando se o usuário já aceitou, recusou ou é o organizador
+            status = ev.get('responseStatus', {}).get('response', '')
+
+            with st.container():
+                st.markdown(f"""
+                <div class='evento-card'>
+                    <h4 style='margin:0;'>{titulo}</h4>
+                    <p style='margin:0; font-size:14px; color:gray;'>🕒 {hora_ini} - {hora_fim}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Se tiver link online, mostra o botão de Entrar
+                if link_reuniao:
+                    st.link_button("🎥 Entrar na Reunião", link_reuniao, type="primary", use_container_width=True)
+                
+                # Se o usuário NÃO for o organizador e NÃO tiver respondido ainda, mostra os botões Aceitar/Recusar
+                if status not in ['organizer', 'accepted', 'declined']:
+                    c_acc, c_dec = st.columns(2)
+                    with c_acc:
+                        if st.button("✅ Aceitar", key=f"acc_{ev['id']}", use_container_width=True):
+                            if responder_reuniao(token, ev['id'], "accept"):
+                                st.success("Aceita com sucesso!")
+                                time.sleep(1)
+                                st.rerun()
+                    with c_dec:
+                        if st.button("❌ Recusar", key=f"dec_{ev['id']}", use_container_width=True):
+                            if responder_reuniao(token, ev['id'], "decline"):
+                                st.warning("Recusada!")
+                                time.sleep(1)
+                                st.rerun()
+                st.write("") # Espaçamento
 
     st.divider()
     
