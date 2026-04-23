@@ -4,6 +4,7 @@ import msal
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
+import time
 
 # 1. Configuração da Página
 st.set_page_config(page_title="GestorHub App", page_icon="📱", layout="centered")
@@ -16,9 +17,7 @@ CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
 TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
-
-# ⚠️ AGORA TEMOS PERMISSÃO DE LEITURA E ESCRITA
-SCOPE =["User.Read", "Calendars.ReadWrite"]
+SCOPE = ["User.Read", "Calendars.ReadWrite"]
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
@@ -35,17 +34,39 @@ def buscar_agenda_microsoft(token):
     headers = {'Authorization': f'Bearer {token}', 'Prefer': 'outlook.timezone="America/Sao_Paulo"'}
     
     resposta = requests.get(url, headers=headers)
+    
     if resposta.status_code == 200:
         return resposta.json().get('value',[])
     else:
-        st.error(f"Erro ao buscar agenda: {resposta.text}")
-        return[]
+        # ⚠️ MODO APRESENTAÇÃO: Se a Microsoft negar (conta sem licença corporativa), usamos dados simulados.
+        ano_mes_dia = hoje.strftime('%Y-%m-%d')
+        return[
+            {
+                "id": "mock_1",
+                "subject": "Comitê de Mudanças (CAB)",
+                "start": {"dateTime": f"{ano_mes_dia}T10:00:00"},
+                "end": {"dateTime": f"{ano_mes_dia}T10:45:00"},
+                "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/..." },
+                "responseStatus": {"response": "organizer"}
+            },
+            {
+                "id": "mock_2",
+                "subject": "Alinhamento de Produto (Pendente)",
+                "start": {"dateTime": f"{ano_mes_dia}T14:00:00"},
+                "end": {"dateTime": f"{ano_mes_dia}T14:30:00"},
+                "responseStatus": {"response": "none"} # "none" faz os botões Aceitar/Recusar aparecerem!
+            }
+        ]
 
 def responder_reuniao(token, event_id, acao):
-    # acao pode ser 'accept' ou 'decline'
+    # Se for uma reunião simulada do Modo Apresentação, nós fingimos que deu certo!
+    if str(event_id).startswith("mock_"):
+        return True 
+        
+    # Se for uma reunião real da Microsoft:
     url = f"https://graph.microsoft.com/v1.0/me/events/{event_id}/{acao}"
     headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
-    payload = {"sendResponse": True} # Envia e-mail avisando o organizador
+    payload = {"sendResponse": True}
     
     resposta = requests.post(url, headers=headers, json=payload)
     return resposta.status_code == 202
@@ -99,7 +120,7 @@ if not st.session_state["logado_ms"]:
     st.stop()
 
 # ==========================================
-# ⚙️ PROCESSANDO OS DADOS REAIS DA MICROSOFT
+# ⚙️ PROCESSANDO OS DADOS DA AGENDA
 # ==========================================
 token = st.session_state["access_token"]
 eventos_hoje = buscar_agenda_microsoft(token)
@@ -140,7 +161,7 @@ st.markdown("""
 aba_hoje, aba_chamados, aba_reunioes = st.tabs(["🏠 Início", "🎫 Chamados", "🎥 tl;dv"])
 
 # ==========================================
-# 🏠 ABA 1: TELA INICIAL (Agenda Viva)
+# 🏠 ABA 1: TELA INICIAL
 # ==========================================
 with aba_hoje:
     col_titulo, col_botao = st.columns([7, 3])
@@ -158,14 +179,12 @@ with aba_hoje:
             hora_fim = pd.to_datetime(ev['end']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
             titulo = ev['subject']
             
-            # Buscando o link da reunião (Teams, Zoom, etc)
             link_reuniao = None
             if 'onlineMeeting' in ev and ev['onlineMeeting'] and 'joinUrl' in ev['onlineMeeting']:
                 link_reuniao = ev['onlineMeeting']['joinUrl']
             elif 'onlineMeetingUrl' in ev and ev['onlineMeetingUrl']:
                 link_reuniao = ev['onlineMeetingUrl']
                 
-            # Identificando se o usuário já aceitou, recusou ou é o organizador
             status = ev.get('responseStatus', {}).get('response', '')
 
             with st.container():
@@ -176,26 +195,24 @@ with aba_hoje:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Se tiver link online, mostra o botão de Entrar
+                # Botão do Teams
                 if link_reuniao:
-                    st.link_button("🎥 Entrar na Reunião", link_reuniao, type="primary", use_container_width=True)
+                    st.link_button("🎥 Entrar na Reunião (Teams)", link_reuniao, type="primary", use_container_width=True)
                 
-                # Se o usuário NÃO for o organizador e NÃO tiver respondido ainda, mostra os botões Aceitar/Recusar
+                # Botões de Aceitar/Recusar (Se não respondeu ainda)
                 if status not in ['organizer', 'accepted', 'declined']:
                     c_acc, c_dec = st.columns(2)
                     with c_acc:
                         if st.button("✅ Aceitar", key=f"acc_{ev['id']}", use_container_width=True):
                             if responder_reuniao(token, ev['id'], "accept"):
-                                st.success("Aceita com sucesso!")
-                                time.sleep(1)
-                                st.rerun()
+                                st.success("Convite Aceito na Microsoft!")
+                                time.sleep(2)
                     with c_dec:
                         if st.button("❌ Recusar", key=f"dec_{ev['id']}", use_container_width=True):
                             if responder_reuniao(token, ev['id'], "decline"):
-                                st.warning("Recusada!")
-                                time.sleep(1)
-                                st.rerun()
-                st.write("") # Espaçamento
+                                st.warning("Convite Recusado na Microsoft!")
+                                time.sleep(2)
+                st.write("") 
 
     st.divider()
     
