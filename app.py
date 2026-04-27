@@ -7,15 +7,14 @@ from datetime import datetime, timedelta
 # ==========================================
 # 1. CONFIGURAÇÃO (WIDE = Fica perfeito no PC e no Celular)
 # ==========================================
-st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="expanded")
+# initial_sidebar_state="collapsed" faz o menu vir escondido no celular por padrão
+st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="collapsed")
 
 # ==========================================
-# 2. CREDENCIAIS DA MICROSOFT (DADOS REAIS)
+# 2. CREDENCIAIS DA MICROSOFT
 # ==========================================
 CLIENT_ID = "261febe1-b827-452e-8bc5-e5ae52a6340c"
 CLIENT_SECRET = "~pQ8Q~ckiPJbeP~FOA0yTOySNzGCxbVTIfVmLcV_"
-
-# Usando 'common' para aceitar o @outlook.com
 AUTHORITY = "https://login.microsoftonline.com/common"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
 SCOPE =["User.Read", "Calendars.ReadWrite"]
@@ -37,17 +36,20 @@ def buscar_agenda_microsoft(token):
     return[]
 
 # ==========================================
-# 3. CSS PREMIUM (Obriga a ser Modo Claro / Nexuma)
+# 3. CSS PREMIUM E CORREÇÃO DE BUGS
 # ==========================================
 st.markdown("""
 <style>
     /* Força Fundo Claro no App Inteiro */
     .stApp, [data-testid="stAppViewContainer"] { background-color: #F9FAFB !important; }
     
-    /* Força Fundo Branco e Texto Escuro na Barra Lateral */[data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E5E7EB !important; }
-    [data-testid="stSidebar"] * { color: #111827 !important; }
+    /* ⚠️ CORREÇÃO DO MENU: Esconde só o botão Inútil (Deploy), mantém o Menu (☰) */
+    #MainMenu {visibility: hidden;} 
+    .stAppDeployButton {display: none;}
+    footer {visibility: hidden;}
     
-    #MainMenu {visibility: hidden;} header {visibility: hidden;} footer {visibility: hidden;}
+    /* Força Fundo Branco na Barra Lateral */
+    [data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E5E7EB !important; }[data-testid="stSidebar"] * { color: #111827 !important; }
     
     /* Tipografia Limpa */
     * { font-family: 'Inter', 'Segoe UI', sans-serif !important; }
@@ -148,16 +150,18 @@ min_ocupados_rest = int(minutos_ocupados % 60)
 minutos_livres = 480 - minutos_ocupados if (480 - minutos_ocupados) > 0 else 0
 
 # ==========================================
-# 6. MENU LATERAL (SIDEBAR)
+# 6. MENU DE NAVEGAÇÃO (MENU SUSPENSO)
 # ==========================================
 with st.sidebar:
     st.markdown("""
-        <div style="padding: 10px 0 30px 0;">
-            <h2 style="margin:0; font-weight:800; font-size:24px;">GestorHub</h2>
+        <div style="padding: 10px 0 20px 0;">
+            <h2 style="margin:0; font-weight:800; font-size:24px; color:#111827;">GestorHub</h2>
         </div>
     """, unsafe_allow_html=True)
     
-    opcao = st.radio("Navegação", ["🏠 Início", "📊 Chamados", "🎥 tl;dv"], label_visibility="collapsed")
+    # ⚠️ NOVO: Menu Suspenso (Dropdown)
+    st.markdown("<p style='font-size:14px; color:#6B7280; margin-bottom:5px;'>Menu de Navegação</p>", unsafe_allow_html=True)
+    opcao = st.selectbox("", ["🏠 Início", "📊 Chamados", "🎥 Resumos tl;dv"], label_visibility="collapsed")
     
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     if st.button("Sair da Conta", use_container_width=True):
@@ -178,7 +182,12 @@ if opcao == "🏠 Início":
     """, unsafe_allow_html=True)
     
     # Bloco Principal: Agenda
-    st.markdown("<h4 style='color:#111827; margin-bottom:15px;'>Sua Agenda Hoje</h4>", unsafe_allow_html=True)
+    col_titulo, col_botao = st.columns([8, 2])
+    with col_titulo:
+        st.markdown("<h4 style='color:#111827; margin-bottom:15px;'>Sua Agenda Hoje</h4>", unsafe_allow_html=True)
+    with col_botao:
+        if st.button("🔄 Atualizar", use_container_width=True):
+            st.rerun()
     
     if total_eventos == 0:
         st.markdown("""
@@ -188,6 +197,7 @@ if opcao == "🏠 Início":
         </div>
         """, unsafe_allow_html=True)
     else:
+        # ⚠️ CORREÇÃO DO BUG DO HTML PRETO: Escrito em uma única linha!
         agenda_html = "<div class='nexuma-card'>"
         for ev in eventos_hoje:
             hora_ini = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
@@ -202,19 +212,12 @@ if opcao == "🏠 Início":
                 
             botao_html = f"<a href='{link}' target='_blank' class='btn-primary' style='width:auto;'>Entrar na Reunião</a>" if link else "<span style='color:#9CA3AF; font-size:13px;'>Sem link online</span>"
             
-            agenda_html += f"""
-            <div class="agenda-item">
-                <div style="flex:1;">
-                    <h4 style="margin: 0; font-size: 16px; color:#111827;">{titulo}</h4>
-                    <p style="margin: 4px 0 0 0; font-size: 14px; color:#6B7280;">🕒 {hora_ini} - {hora_fim}</p>
-                </div>
-                <div>{botao_html}</div>
-            </div>
-            """
+            agenda_html += f"<div class='agenda-item'><div style='flex:1;'><h4 style='margin: 0; font-size: 16px; color:#111827;'>{titulo}</h4><p style='margin: 4px 0 0 0; font-size: 14px; color:#6B7280;'>🕒 {hora_ini} - {hora_fim}</p></div><div>{botao_html}</div></div>"
+            
         agenda_html += "</div>"
         st.markdown(agenda_html, unsafe_allow_html=True)
 
-    # Bloco Inferior: Day Pulse (Como solicitado, posicionado no final)
+    # Bloco Inferior: Day Pulse 
     st.markdown("<h4 style='color:#111827; margin-top:30px; margin-bottom:5px;'>Day Pulse</h4>", unsafe_allow_html=True)
     st.markdown(f"""
     <div class="nexuma-card">
@@ -237,7 +240,7 @@ elif opcao == "📊 Chamados":
     
     st.markdown('<div class="nexuma-card" style="padding: 10px;">', unsafe_allow_html=True)
     link_pbi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
-    st.components.v1.iframe(link_pbi, width=1200, height=700, scrolling=True)
+    st.components.v1.iframe(link_pbi, width=1400, height=800, scrolling=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 elif opcao == "🎥 Resumos tl;dv":
