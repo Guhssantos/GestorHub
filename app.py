@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # ==========================================
 # 1. CONFIGURAÇÃO
 # ==========================================
-st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="expanded")
 
 # ==========================================
 # 2. CREDENCIAIS DA MICROSOFT
@@ -41,10 +41,8 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
 
-    /* Fundo claro */
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"] {
-        background-color: #F9FAFB !important;
-    }
+    /* Fundo claro no conteúdo principal */
+    .stApp, [data-testid="stAppViewContainer"] { background-color: #F9FAFB !important; }
 
     /* Header e footer */
     header[data-testid="stHeader"] { background: transparent !important; }
@@ -165,6 +163,46 @@ st.markdown("""
     }
     .p-title { font-size: 11px; color: #6B7280; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
     .p-val { font-size: 20px; font-weight: 800; margin-top: 8px; color: #111827; }
+
+    /* ===== SIDEBAR PRETA E SEMPRE VISÍVEL ===== */
+    [data-testid="stSidebar"] {
+        background-color: #111827 !important;
+        min-width: 230px !important;
+    }
+    /* Esconde o botão de colapso */
+    [data-testid="stSidebarCollapseButton"],
+    button[data-testid="collapsedControl"] { display: none !important; }
+
+    /* Textos brancos na sidebar */
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span { color: #F9FAFB !important; font-family: 'Inter', sans-serif !important; }
+
+    /* Selectbox escuro */
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div,
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div:focus,
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div:hover {
+        background-color: #1F2937 !important;
+        color: #F9FAFB !important;
+        border: 1.5px solid #374151 !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stSidebar"] div[data-baseweb="select"] span,
+    [data-testid="stSidebar"] div[data-baseweb="select"] div { color: #F9FAFB !important; }
+    [data-testid="stSidebar"] div[data-baseweb="select"] svg { fill: #9CA3AF !important; }
+
+    /* Dropdown do selectbox */
+    ul[data-baseweb="menu"] { background-color: #1F2937 !important; border: 1px solid #374151 !important; border-radius: 8px !important; }
+    ul[data-baseweb="menu"] li { color: #F9FAFB !important; font-family: 'Inter', sans-serif !important; }
+    ul[data-baseweb="menu"] li:hover { background-color: #374151 !important; }
+
+    /* Botão Sair */
+    [data-testid="stSidebar"] button {
+        background-color: #7F1D1D !important; color: #FEE2E2 !important;
+        border: 1px solid #991B1B !important; font-weight: 600 !important; border-radius: 8px !important;
+    }
+    [data-testid="stSidebar"] button:hover { background-color: #991B1B !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -228,12 +266,12 @@ minutos_livres = max(0, 480 - minutos_ocupados)
 with st.sidebar:
     st.markdown("""
         <div style="padding: 10px 0 20px 0;">
-            <h2 style="margin:0; font-weight:800; font-size:24px; color:#111827; font-family: 'Inter', sans-serif;">GestorHub</h2>
+            <h2 style="margin:0; font-weight:800; font-size:24px; color:#FFFFFF; font-family: 'Inter', sans-serif;">GestorHub</h2>
         </div>
     """, unsafe_allow_html=True)
 
     st.markdown(
-        "<p style='font-size:14px; color:#6B7280; margin-bottom:5px; font-family: Inter, sans-serif;'>Navegação</p>",
+        "<p style='font-size:12px; color:#9CA3AF; margin-bottom:5px; letter-spacing:0.08em; text-transform:uppercase; font-family: Inter, sans-serif;'>Navegação</p>",
         unsafe_allow_html=True
     )
     opcao = st.selectbox(
