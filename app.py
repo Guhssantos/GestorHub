@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 # ==========================================
 # 1. CONFIGURAÇÃO (WIDE = Fica perfeito no PC e no Celular)
 # ==========================================
-# initial_sidebar_state="collapsed" faz o menu vir escondido no celular por padrão
 st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="collapsed")
 
 # ==========================================
@@ -36,64 +35,59 @@ def buscar_agenda_microsoft(token):
     return[]
 
 # ==========================================
-# 3. CSS PREMIUM E CORREÇÃO DE BUGS
+# 3. CSS PREMIUM (Correção dos Bugs Visuais)
 # ==========================================
 st.markdown("""
 <style>
-    /* Força Fundo Claro no App Inteiro */
-    .stApp, [data-testid="stAppViewContainer"] { background-color: #F9FAFB !important; }
+    /* Força Fundo Claro no App Inteiro e Sidebar */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"] { background-color: #F9FAFB !important; }
     
-    /* ⚠️ CORREÇÃO DO MENU: Esconde só o botão Inútil (Deploy), mantém o Menu (☰) */
-    #MainMenu {visibility: hidden;} 
-    .stAppDeployButton {display: none;}
-    footer {visibility: hidden;}
+    /* Oculta Header e Footer sem quebrar ícones */
+    header[data-testid="stHeader"] { background: transparent !important; }
+    .stAppDeployButton { display: none !important; }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
     
-    /* Força Fundo Branco na Barra Lateral */
-    [data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E5E7EB !important; }[data-testid="stSidebar"] * { color: #111827 !important; }
-    
-    /* Tipografia Limpa */
-    * { font-family: 'Inter', 'Segoe UI', sans-serif !important; }
-    
-    /* Cards Modernos (Nexuma) */
-    .nexuma-card {
-        background-color: #FFFFFF;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-        border: 1px solid #E5E7EB;
-        margin-bottom: 20px;
+    /* CORREÇÃO DO MENU: Força Selectbox e Textos da Lateral para Light Mode */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label { color: #111827 !important; font-weight: 600; font-family: 'Inter', sans-serif;}
+    div[data-baseweb="select"] > div {
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 8px !important;
     }
     
-    /* Header do Dashboard */
-    .dashboard-header { margin-top: 10px; margin-bottom: 30px; }
+    /* Botão Sair da Conta Estilizado */[data-testid="stSidebar"] button {
+        background-color: #FEE2E2 !important;
+        color: #991B1B !important;
+        border: 1px solid #FCA5A5 !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stSidebar"] button:hover { background-color: #FECACA !important; }
+    
+    /* Classes Customizadas (Nexuma) */
+    .nexuma-card {
+        background-color: #FFFFFF; border-radius: 16px; padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03); border: 1px solid #E5E7EB; margin-bottom: 20px;
+        font-family: 'Inter', 'Segoe UI', sans-serif;
+    }
+    .dashboard-header { margin-top: 10px; margin-bottom: 30px; font-family: 'Inter', sans-serif; }
     .dashboard-header h1 { font-size: 28px; font-weight: 800; color: #111827; margin: 0;}
     .dashboard-header p { font-size: 15px; color: #6B7280; margin: 4px 0 0 0;}
     
-    /* Botões elegantes */
     .btn-primary {
-        background-color: #111827; color: #FFFFFF !important;
-        padding: 12px 24px; border-radius: 8px; text-decoration: none;
-        font-weight: 600; font-size: 14px; display: inline-block; text-align: center;
-        border: none; cursor: pointer; width: 100%;
+        background-color: #111827; color: #FFFFFF !important; padding: 12px 24px; border-radius: 8px; 
+        text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; text-align: center;
+        border: none; cursor: pointer; width: 100%; font-family: 'Inter', sans-serif;
     }
     .btn-primary:hover { background-color: #374151; }
     
-    /* Item da Agenda */
-    .agenda-item {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 16px 0; border-bottom: 1px solid #F3F4F6;
-    }
+    .agenda-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Inter', sans-serif;}
     .agenda-item:last-child { border-bottom: none; padding-bottom: 0; }
     
-    /* Grid do Day Pulse */
-    .pulse-grid {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 15px; margin-top: 15px;
-    }
-    .pulse-box {
-        background-color: #F9FAFB; border-radius: 12px; padding: 20px 10px;
-        text-align: center; border: 1px solid #E5E7EB;
-    }
+    .pulse-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; font-family: 'Inter', sans-serif;}
+    .pulse-box { background-color: #F9FAFB; border-radius: 12px; padding: 20px 10px; text-align: center; border: 1px solid #E5E7EB; }
     .p-title { font-size: 11px; color: #6B7280; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;}
     .p-val { font-size: 20px; font-weight: 800; margin-top: 8px; color: #111827; }
 </style>
@@ -121,8 +115,8 @@ if not st.session_state["logado_ms"]:
     with col2:
         st.markdown("""
         <div class="nexuma-card" style="text-align: center; padding: 50px;">
-            <h1 style="color: #111827; font-weight: 800; font-size: 32px;">GestorHub</h1>
-            <p style="color: #6B7280; margin-bottom: 40px;">Centro de Comando Executivo</p>
+            <h1 style="color: #111827; font-weight: 800; font-size: 32px; font-family: 'Inter', sans-serif;">GestorHub</h1>
+            <p style="color: #6B7280; margin-bottom: 40px; font-family: 'Inter', sans-serif;">Centro de Comando Executivo</p>
         </div>
         """, unsafe_allow_html=True)
         msal_app = get_msal_app()
@@ -131,7 +125,7 @@ if not st.session_state["logado_ms"]:
     st.stop()
 
 # ==========================================
-# 5. PROCESSAMENTO DE DADOS (AGENDA E PULSE)
+# 5. PROCESSAMENTO DE DADOS
 # ==========================================
 eventos_hoje = buscar_agenda_microsoft(st.session_state["access_token"])
 total_eventos = len(eventos_hoje)
@@ -150,18 +144,17 @@ min_ocupados_rest = int(minutos_ocupados % 60)
 minutos_livres = 480 - minutos_ocupados if (480 - minutos_ocupados) > 0 else 0
 
 # ==========================================
-# 6. MENU DE NAVEGAÇÃO (MENU SUSPENSO)
+# 6. MENU LATERAL (SIDEBAR)
 # ==========================================
 with st.sidebar:
     st.markdown("""
         <div style="padding: 10px 0 20px 0;">
-            <h2 style="margin:0; font-weight:800; font-size:24px; color:#111827;">GestorHub</h2>
+            <h2 style="margin:0; font-weight:800; font-size:24px; color:#111827; font-family: 'Inter', sans-serif;">GestorHub</h2>
         </div>
     """, unsafe_allow_html=True)
     
-    # ⚠️ NOVO: Menu Suspenso (Dropdown)
-    st.markdown("<p style='font-size:14px; color:#6B7280; margin-bottom:5px;'>Menu de Navegação</p>", unsafe_allow_html=True)
-    opcao = st.selectbox("", ["🏠 Início", "📊 Chamados", "🎥 Resumos tl;dv"], label_visibility="collapsed")
+    st.markdown("<p style='font-size:14px; color:#6B7280; margin-bottom:5px; font-family: Inter, sans-serif;'>Navegação</p>", unsafe_allow_html=True)
+    opcao = st.selectbox("",["🏠 Início", "📊 Chamados", "🎥 Resumos tl;dv"], label_visibility="collapsed")
     
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     if st.button("Sair da Conta", use_container_width=True):
@@ -173,7 +166,6 @@ with st.sidebar:
 # ==========================================
 if opcao == "🏠 Início":
     
-    # Header
     st.markdown("""
     <div class="dashboard-header">
         <h1>Olá, Gestor!</h1>
@@ -181,10 +173,9 @@ if opcao == "🏠 Início":
     </div>
     """, unsafe_allow_html=True)
     
-    # Bloco Principal: Agenda
     col_titulo, col_botao = st.columns([8, 2])
     with col_titulo:
-        st.markdown("<h4 style='color:#111827; margin-bottom:15px;'>Sua Agenda Hoje</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color:#111827; margin-bottom:15px; font-family: Inter, sans-serif;'>Sua Agenda Hoje</h4>", unsafe_allow_html=True)
     with col_botao:
         if st.button("🔄 Atualizar", use_container_width=True):
             st.rerun()
@@ -193,11 +184,10 @@ if opcao == "🏠 Início":
         st.markdown("""
         <div class="nexuma-card" style="text-align: center; padding: 40px;">
             <span style="font-size: 30px;">🎉</span>
-            <p style="color: #6B7280; font-size: 16px; margin-top: 10px;">Sua agenda está livre hoje.</p>
+            <p style="color: #6B7280; font-size: 16px; margin-top: 10px; font-family: Inter, sans-serif;">Sua agenda está livre hoje.</p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # ⚠️ CORREÇÃO DO BUG DO HTML PRETO: Escrito em uma única linha!
         agenda_html = "<div class='nexuma-card'>"
         for ev in eventos_hoje:
             hora_ini = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
@@ -210,15 +200,21 @@ if opcao == "🏠 Início":
             elif 'onlineMeetingUrl' in ev and ev['onlineMeetingUrl']:
                 link = ev['onlineMeetingUrl']
                 
-            botao_html = f"<a href='{link}' target='_blank' class='btn-primary' style='width:auto;'>Entrar na Reunião</a>" if link else "<span style='color:#9CA3AF; font-size:13px;'>Sem link online</span>"
+            botao_html = f"<a href='{link}' target='_blank' class='btn-primary' style='width:auto;'>Entrar na Reunião</a>" if link else "<span style='color:#9CA3AF; font-size:13px; font-family: Inter, sans-serif;'>Sem link online</span>"
             
-            agenda_html += f"<div class='agenda-item'><div style='flex:1;'><h4 style='margin: 0; font-size: 16px; color:#111827;'>{titulo}</h4><p style='margin: 4px 0 0 0; font-size: 14px; color:#6B7280;'>🕒 {hora_ini} - {hora_fim}</p></div><div>{botao_html}</div></div>"
-            
+            agenda_html += f"""
+            <div class="agenda-item">
+                <div style="flex:1;">
+                    <h4 style="margin: 0; font-size: 16px; color:#111827; font-family: Inter, sans-serif;">{titulo}</h4>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color:#6B7280; font-family: Inter, sans-serif;">🕒 {hora_ini} - {hora_fim}</p>
+                </div>
+                <div>{botao_html}</div>
+            </div>
+            """
         agenda_html += "</div>"
         st.markdown(agenda_html, unsafe_allow_html=True)
 
-    # Bloco Inferior: Day Pulse 
-    st.markdown("<h4 style='color:#111827; margin-top:30px; margin-bottom:5px;'>Day Pulse</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color:#111827; margin-top:30px; margin-bottom:5px; font-family: Inter, sans-serif;'>Day Pulse</h4>", unsafe_allow_html=True)
     st.markdown(f"""
     <div class="nexuma-card">
         <div class="pulse-grid">
@@ -237,7 +233,6 @@ elif opcao == "📊 Chamados":
         <p>Acompanhamento de SLAs em tempo real</p>
     </div>
     """, unsafe_allow_html=True)
-    
     st.markdown('<div class="nexuma-card" style="padding: 10px;">', unsafe_allow_html=True)
     link_pbi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
     st.components.v1.iframe(link_pbi, width=1400, height=800, scrolling=True)
@@ -250,21 +245,13 @@ elif opcao == "🎥 Resumos tl;dv":
         <p>Insights extraídos das reuniões (tl;dv)</p>
     </div>
     """, unsafe_allow_html=True)
-    
     st.markdown("""
     <div class="nexuma-card">
-        <h3 style="color:#111827; margin:0;">Comitê de Mudanças (CAB)</h3>
-        <p style="color:#6B7280; font-size:14px; margin-top:4px;">Hoje, 10:00 • Duração: 45m</p>
-        
+        <h3 style="color:#111827; margin:0; font-family: Inter, sans-serif;">Comitê de Mudanças (CAB)</h3>
+        <p style="color:#6B7280; font-size:14px; margin-top:4px; font-family: Inter, sans-serif;">Hoje, 10:00 • Duração: 45m</p>
         <div style="background-color:#F9FAFB; padding:15px; border-radius:8px; margin-top:20px;">
-            <p style="color:#111827; font-size:14px; margin:0;"><b>📝 Resumo:</b> A equipe aprovou a atualização do BD do ERP para este domingo. A migração do servidor de e-mails foi rejeitada por falta de testes de segurança.</p>
+            <p style="color:#111827; font-size:14px; margin:0; font-family: Inter, sans-serif;"><b>📝 Resumo:</b> A equipe aprovou a atualização do BD do ERP para este domingo.</p>
         </div>
-        
-        <div style="margin-top: 15px;">
-            <span style="background-color:#D1FAE5; color:#065F46; padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold; margin-right:10px;">✔️ Aprovado: BD ERP</span>
-            <span style="background-color:#FEE2E2; color:#991B1B; padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold;">❌ Rejeitado: Migração E-mails</span>
-        </div>
-        
         <br>
         <a href="#" class="btn-primary" style="width: auto;">🔗 Assistir Gravação no tl;dv</a>
     </div>
