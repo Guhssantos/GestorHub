@@ -15,7 +15,7 @@ st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", init
 CLIENT_ID = "261febe1-b827-452e-8bc5-e5ae52a6340c"
 CLIENT_SECRET = "~pQ8Q~ckiPJbeP~FOA0yTOySNzGCxbVTIfVmLcV_"
 
-# ⚠️ AQUI ESTÁ A MUDANÇA: Usar "common" permite que o @outlook.com funcione!
+# Usando 'common' para aceitar o @outlook.com
 AUTHORITY = "https://login.microsoftonline.com/common"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
 SCOPE =["User.Read", "Calendars.ReadWrite"]
