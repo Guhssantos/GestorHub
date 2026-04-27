@@ -10,10 +10,12 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="expanded")
 
 # ==========================================
-# 2. CREDENCIAIS DA MICROSOFT
+# 2. CREDENCIAIS DA MICROSOFT (DADOS REAIS)
 # ==========================================
 CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
 CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
+
+# ⚠️ AQUI ESTÁ A MUDANÇA: Usar "common" permite que o @outlook.com funcione!
 AUTHORITY = "https://login.microsoftonline.com/common"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
 SCOPE =["User.Read", "Calendars.ReadWrite"]
