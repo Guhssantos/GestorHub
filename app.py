@@ -5,9 +5,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # ==========================================
-# 1. CONFIGURAÇÃO DA PÁGINA (WIDE PARA DASHBOARD)
+# 1. CONFIGURAÇÃO MOBILE-FIRST
 # ==========================================
-st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="expanded")
+# layout="centered" é fundamental para celulares
+st.set_page_config(page_title="GestorHub", page_icon="📱", layout="centered", initial_sidebar_state="collapsed")
 
 # ==========================================
 # 2. CREDENCIAIS DA MICROSOFT (DADOS REAIS)
@@ -32,67 +33,65 @@ def buscar_agenda_microsoft(token):
     
     resposta = requests.get(url, headers=headers)
     if resposta.status_code == 200:
-        return resposta.json().get('value', [])
-    return[] # RETORNA VAZIO SE NÃO TIVER DADOS. ZERO MOCKS.
+        return resposta.json().get('value',[])
+    return[]
 
 # ==========================================
-# 3. CSS PREMIUM (ESTILO NEXUMA / REFERENCE)
+# 3. CSS OTIMIZADO PARA CELULAR
 # ==========================================
 st.markdown("""
 <style>
-    /* Força o fundo claro e esconde elementos padrão do Streamlit */
     .stApp { background-color: #F8F9FA; }
-    #MainMenu {visibility: hidden;} header {visibility: hidden;} footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;} header {visibility: visible;} footer {visibility: hidden;}
     
-    /* Tipografia e Cores Base */
-    h1, h2, h3, h4, p, span, div { font-family: 'Inter', 'Segoe UI', sans-serif !important; }
+    /* Tipografia Limpa */
+    * { font-family: 'Inter', -apple-system, sans-serif !important; }
     .text-dark { color: #111827 !important; }
     .text-gray { color: #6B7280 !important; }
     
-    /* Cards Modernos (Estilo Nexuma) */
+    /* Cards Mobile */
     .nexuma-card {
         background-color: #FFFFFF;
         border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        padding: 16px; /* Menos padding para caber no celular */
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
         border: 1px solid #F3F4F6;
-        margin-bottom: 20px;
-        transition: transform 0.2s ease;
+        margin-bottom: 16px;
     }
-    .nexuma-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06); }
     
-    /* Métricas do Dashboard */
-    .metric-title { font-size: 14px; font-weight: 600; color: #6B7280; display: flex; align-items: center; gap: 8px;}
-    .metric-value { font-size: 32px; font-weight: 700; color: #111827; margin-top: 8px; }
+    /* Métricas Mobile */
+    .metric-title { font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;}
+    .metric-value { font-size: 24px; font-weight: 800; color: #111827; margin-top: 4px; }
     
-    /* Botoes Elegantes */
-    .btn-primary {
+    /* Botões Mobile (Largura Total para facilitar o toque) */
+    .btn-mobile {
         background-color: #111827; color: #FFFFFF !important;
-        padding: 10px 20px; border-radius: 8px; text-decoration: none;
-        font-weight: 600; font-size: 14px; display: inline-block; text-align: center;
-    }
-    .btn-outline {
-        background-color: #FFFFFF; color: #111827 !important;
-        border: 1px solid #E5E7EB; padding: 10px 20px; border-radius: 8px; 
-        text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block;
+        padding: 12px 16px; border-radius: 8px; text-decoration: none;
+        font-weight: 600; font-size: 14px; display: block; text-align: center;
+        width: 100%; margin-top: 10px;
     }
     
-    /* Tabela / Lista de Agenda */
+    .btn-outline-mobile {
+        background-color: #FFFFFF; color: #111827 !important;
+        border: 1px solid #E5E7EB; padding: 12px 16px; border-radius: 8px; 
+        text-decoration: none; font-weight: 600; font-size: 14px; display: block; text-align: center;
+        width: 100%; margin-top: 10px;
+    }
+    
+    /* Item da Agenda com quebra para celular */
     .agenda-item {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 16px 0; border-bottom: 1px solid #F3F4F6;
+        padding: 12px 0; border-bottom: 1px solid #F3F4F6;
     }
     .agenda-item:last-child { border-bottom: none; padding-bottom: 0; }
     
-    /* Saudação Topo */
-    .greeting-header { margin-top: 20px; margin-bottom: 30px; }
-    .greeting-header h1 { font-size: 28px; font-weight: 700; color: #111827; margin: 0;}
-    .greeting-header p { font-size: 16px; color: #6B7280; margin: 5px 0 0 0;}
+    .greeting-header { margin-top: 10px; margin-bottom: 20px; }
+    .greeting-header h1 { font-size: 24px; font-weight: 800; color: #111827; margin: 0;}
+    .greeting-header p { font-size: 14px; color: #6B7280; margin: 5px 0 0 0;}
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. AUTENTICAÇÃO REAL (SEM ENROLAÇÃO)
+# 4. AUTENTICAÇÃO REAL
 # ==========================================
 if "logado_ms" not in st.session_state: st.session_state["logado_ms"] = False
 if "access_token" not in st.session_state: st.session_state["access_token"] = None
@@ -108,22 +107,20 @@ if "code" in query_params and not st.session_state["logado_ms"]:
         st.rerun()
 
 if not st.session_state["logado_ms"]:
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("""
-        <div class="nexuma-card" style="text-align: center; padding: 40px;">
-            <h2 class="text-dark">GestorHub</h2>
-            <p class="text-gray" style="margin-bottom: 30px;">Faça login para acessar seu centro de comando.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        msal_app = get_msal_app()
-        auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
-        st.link_button("Entrar com Microsoft 365", auth_url, type="primary", use_container_width=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="nexuma-card" style="text-align: center; padding: 30px 20px;">
+        <h2 class="text-dark">GestorHub</h2>
+        <p class="text-gray" style="margin-bottom: 30px;">Acesso Corporativo</p>
+    </div>
+    """, unsafe_allow_html=True)
+    msal_app = get_msal_app()
+    auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
+    st.link_button("Entrar com Microsoft 365", auth_url, type="primary", use_container_width=True)
     st.stop()
 
 # ==========================================
-# 5. PROCESSAMENTO DE DADOS (100% REAIS)
+# 5. PROCESSAMENTO DA AGENDA REAL
 # ==========================================
 eventos_hoje = buscar_agenda_microsoft(st.session_state["access_token"])
 total_eventos = len(eventos_hoje)
@@ -138,139 +135,105 @@ horas_ocupadas = int(minutos_ocupados // 60)
 min_ocupados_rest = int(minutos_ocupados % 60)
 
 # ==========================================
-# 6. SIDEBAR (MENU LIMPO)
+# 6. MENU LATERAL (HAMBÚRGUER NO CELULAR)
 # ==========================================
 with st.sidebar:
-    st.markdown("<h2 style='color:#111827; margin-bottom: 30px;'>GestorHub</h2>", unsafe_allow_html=True)
-    
-    # Navegação usando botões radio limpos
-    opcao = st.radio("", ["🏠 Home", "📊 Chamados", "🎥 Resumos tl;dv"], label_visibility="collapsed")
-    
-    st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
-    if st.button("Sair da Conta", use_container_width=True):
+    st.markdown("<h3 class='text-dark'>📱 Navegação</h3>", unsafe_allow_html=True)
+    opcao = st.radio("",["🏠 Início", "📊 Chamados", "🎥 tl;dv"], label_visibility="collapsed")
+    st.divider()
+    if st.button("🚪 Sair", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
 # ==========================================
-# 7. INTERFACE PRINCIPAL (DASHBOARD)
+# 7. TELAS DO APLICATIVO
 # ==========================================
-if opcao == "🏠 Home":
+if opcao == "🏠 Início":
     
-    # Cabeçalho Estilo Nexuma
     st.markdown("""
     <div class="greeting-header">
         <h1>Olá, Gestor!</h1>
-        <p>Seu centro de comando está pronto 🚀</p>
+        <p>Resumo do seu dia</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # ------------------------------------------
-    # LINHA 1: MÉTRICAS (Day Pulse Redesenhado)
-    # ------------------------------------------
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="nexuma-card">
-            <div class="metric-title">📅 Eventos Hoje</div>
-            <div class="metric-value">{total_eventos} <span style="font-size:14px; color:#6B7280; font-weight:normal;">reuniões</span></div>
+    # Métricas adaptadas para celular (empilhadas)
+    st.markdown(f"""
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <div class="nexuma-card" style="flex: 1; margin-bottom: 0;">
+            <div class="metric-title">Eventos</div>
+            <div class="metric-value">{total_eventos}</div>
         </div>
-        """, unsafe_allow_html=True)
-        
-    with col2:
-        st.markdown(f"""
-        <div class="nexuma-card">
-            <div class="metric-title">🕒 Tempo Ocupado</div>
+        <div class="nexuma-card" style="flex: 1; margin-bottom: 0;">
+            <div class="metric-title">Ocupado</div>
             <div class="metric-value">{horas_ocupadas}h {min_ocupados_rest}m</div>
         </div>
-        """, unsafe_allow_html=True)
-        
-    with col3:
-        st.markdown("""
-        <div class="nexuma-card">
-            <div class="metric-title">🔥 Status SLA</div>
-            <div class="metric-value" style="color: #10B981;">Estável</div>
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
 
-    # ------------------------------------------
-    # LINHA 2: AGENDA (Totalmente Clean e Funcional)
-    # ------------------------------------------
-    st.markdown("<h3 class='text-dark' style='margin-top: 20px; margin-bottom: 15px;'>Agenda do Dia</h3>", unsafe_allow_html=True)
+    # Lista da Agenda
+    st.markdown("<h4 class='text-dark' style='margin-bottom: 10px;'>Sua Agenda</h4>", unsafe_allow_html=True)
     
     if total_eventos == 0:
         st.markdown("""
-        <div class="nexuma-card" style="text-align: center; padding: 40px;">
-            <p class="text-gray" style="font-size: 16px;">Sua agenda está livre hoje.</p>
+        <div class="nexuma-card" style="text-align: center;">
+            <p class="text-gray" style="margin: 0;">Sua agenda está livre hoje.</p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # Construindo a lista de agenda com HTML/CSS dentro do Card
         agenda_html = "<div class='nexuma-card'>"
-        
         for ev in eventos_hoje:
             hora_ini = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
             hora_fim = pd.to_datetime(ev['end']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
             titulo = ev['subject']
             
-            # Pega link se tiver
             link = ""
             if 'onlineMeeting' in ev and ev['onlineMeeting'] and 'joinUrl' in ev['onlineMeeting']:
                 link = ev['onlineMeeting']['joinUrl']
             elif 'onlineMeetingUrl' in ev and ev['onlineMeetingUrl']:
                 link = ev['onlineMeetingUrl']
                 
-            botao_html = f"<a href='{link}' target='_blank' class='btn-primary'>Entrar</a>" if link else "<span class='text-gray' style='font-size:12px;'>Presencial / Sem Link</span>"
+            botao_html = f"<a href='{link}' target='_blank' class='btn-mobile'>Entrar na Reunião</a>" if link else "<p class='text-gray' style='font-size:12px; margin-top:5px;'><i>Sem link de reunião</i></p>"
             
             agenda_html += f"""
             <div class="agenda-item">
-                <div>
-                    <h4 class="text-dark" style="margin: 0; font-size: 16px;">{titulo}</h4>
-                    <p class="text-gray" style="margin: 0; font-size: 14px; margin-top: 4px;">{hora_ini} - {hora_fim}</p>
-                </div>
-                <div>{botao_html}</div>
+                <h4 class="text-dark" style="margin: 0; font-size: 15px;">{titulo}</h4>
+                <p class="text-gray" style="margin: 0; font-size: 13px; margin-top: 2px;">🕒 {hora_ini} - {hora_fim}</p>
+                {botao_html}
             </div>
             """
-            
         agenda_html += "</div>"
         st.markdown(agenda_html, unsafe_allow_html=True)
 
-# ==========================================
-# TELA 2: CHAMADOS (POWER BI LIMPO)
-# ==========================================
 elif opcao == "📊 Chamados":
     st.markdown("""
     <div class="greeting-header">
         <h1>Chamados</h1>
-        <p>Painel de SLAs via Power BI</p>
+        <p>SLA Power BI</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Embutindo Power BI dentro de um card com bordas redondas
-    st.markdown('<div class="nexuma-card" style="padding: 10px;">', unsafe_allow_html=True)
+    # Iframe com width 100% e altura para celular
+    st.markdown('<div class="nexuma-card" style="padding: 5px;">', unsafe_allow_html=True)
     link_pbi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
-    st.components.v1.iframe(link_pbi, width=1200, height=700, scrolling=True)
+    st.components.v1.iframe(link_pbi, width="100%", height=500, scrolling=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# TELA 3: RESUMOS TL;DV
-# ==========================================
 elif opcao == "🎥 Resumos tl;dv":
     st.markdown("""
     <div class="greeting-header">
-        <h1>Resumos de Reuniões</h1>
-        <p>Insights extraídos das suas reuniões corporativas.</p>
+        <h1>tl;dv</h1>
+        <p>Resumos das reuniões</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
     <div class="nexuma-card">
-        <h4 class="text-dark" style="margin:0;">Comitê de Mudanças (CAB)</h4>
-        <p class="text-gray" style="font-size: 14px; margin-top: 5px;">Data: 24 de Abril</p>
-        <hr style="border: 0; border-top: 1px solid #F3F4F6; margin: 15px 0;">
-        <p class="text-dark"><b>Resumo:</b> A equipe aprovou a atualização do BD do ERP. Migração do e-mail rejeitada.</p>
-        <p class="text-dark"><b>Decisões:</b> <span style="color: #10B981;">Aprovado: BD ERP</span> | <span style="color: #EF4444;">Rejeitado: E-mails</span></p>
-        <br>
-        <a href="#" class="btn-outline">Ver Vídeo Completo (tl;dv)</a>
+        <h4 class="text-dark" style="margin:0;">Comitê de Mudanças</h4>
+        <p class="text-gray" style="font-size: 12px; margin-top: 2px;">24 de Abril • MS Teams</p>
+        <hr style="border: 0; border-top: 1px solid #F3F4F6; margin: 10px 0;">
+        <p class="text-dark" style="font-size: 14px;"><b>Resumo:</b> Aprovação da atualização do BD do ERP. Migração de e-mail rejeitada.</p>
+        <p class="text-dark" style="font-size: 14px; margin-top:5px;"><b>Decisões:</b><br><span style="color: #10B981;">• Aprovado: BD ERP</span><br><span style="color: #EF4444;">• Rejeitado: E-mails</span></p>
+        <a href="#" class="btn-outline-mobile">Assistir no tl;dv</a>
     </div>
     """, unsafe_allow_html=True)
