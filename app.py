@@ -5,18 +5,16 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # ==========================================
-# 1. CONFIGURAÇÃO MOBILE-FIRST
+# 1. CONFIGURAÇÃO (WIDE = Fica perfeito no PC e no Celular)
 # ==========================================
-# layout="centered" é fundamental para celulares
-st.set_page_config(page_title="GestorHub", page_icon="📱", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="expanded")
 
 # ==========================================
-# 2. CREDENCIAIS DA MICROSOFT (DADOS REAIS)
+# 2. CREDENCIAIS DA MICROSOFT
 # ==========================================
 CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
 CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
-TENANT_ID = "5476c56d-32fe-4aa3-b6cd-e04b8d5701bd"
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+AUTHORITY = "https://login.microsoftonline.com/common"
 REDIRECT_URI = "https://gestor-app.streamlit.app" 
 SCOPE =["User.Read", "Calendars.ReadWrite"]
 
@@ -37,61 +35,68 @@ def buscar_agenda_microsoft(token):
     return[]
 
 # ==========================================
-# 3. CSS OTIMIZADO PARA CELULAR
+# 3. CSS PREMIUM (Obriga a ser Modo Claro / Nexuma)
 # ==========================================
 st.markdown("""
 <style>
-    .stApp { background-color: #F8F9FA; }
-    #MainMenu {visibility: hidden;} header {visibility: visible;} footer {visibility: hidden;}
+    /* Força Fundo Claro no App Inteiro */
+    .stApp, [data-testid="stAppViewContainer"] { background-color: #F9FAFB !important; }
+    
+    /* Força Fundo Branco e Texto Escuro na Barra Lateral */[data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E5E7EB !important; }
+    [data-testid="stSidebar"] * { color: #111827 !important; }
+    
+    #MainMenu {visibility: hidden;} header {visibility: hidden;} footer {visibility: hidden;}
     
     /* Tipografia Limpa */
-    * { font-family: 'Inter', -apple-system, sans-serif !important; }
-    .text-dark { color: #111827 !important; }
-    .text-gray { color: #6B7280 !important; }
+    * { font-family: 'Inter', 'Segoe UI', sans-serif !important; }
     
-    /* Cards Mobile */
+    /* Cards Modernos (Nexuma) */
     .nexuma-card {
         background-color: #FFFFFF;
         border-radius: 16px;
-        padding: 16px; /* Menos padding para caber no celular */
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-        border: 1px solid #F3F4F6;
-        margin-bottom: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        border: 1px solid #E5E7EB;
+        margin-bottom: 20px;
     }
     
-    /* Métricas Mobile */
-    .metric-title { font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;}
-    .metric-value { font-size: 24px; font-weight: 800; color: #111827; margin-top: 4px; }
+    /* Header do Dashboard */
+    .dashboard-header { margin-top: 10px; margin-bottom: 30px; }
+    .dashboard-header h1 { font-size: 28px; font-weight: 800; color: #111827; margin: 0;}
+    .dashboard-header p { font-size: 15px; color: #6B7280; margin: 4px 0 0 0;}
     
-    /* Botões Mobile (Largura Total para facilitar o toque) */
-    .btn-mobile {
+    /* Botões elegantes */
+    .btn-primary {
         background-color: #111827; color: #FFFFFF !important;
-        padding: 12px 16px; border-radius: 8px; text-decoration: none;
-        font-weight: 600; font-size: 14px; display: block; text-align: center;
-        width: 100%; margin-top: 10px;
+        padding: 12px 24px; border-radius: 8px; text-decoration: none;
+        font-weight: 600; font-size: 14px; display: inline-block; text-align: center;
+        border: none; cursor: pointer; width: 100%;
     }
+    .btn-primary:hover { background-color: #374151; }
     
-    .btn-outline-mobile {
-        background-color: #FFFFFF; color: #111827 !important;
-        border: 1px solid #E5E7EB; padding: 12px 16px; border-radius: 8px; 
-        text-decoration: none; font-weight: 600; font-size: 14px; display: block; text-align: center;
-        width: 100%; margin-top: 10px;
-    }
-    
-    /* Item da Agenda com quebra para celular */
+    /* Item da Agenda */
     .agenda-item {
-        padding: 12px 0; border-bottom: 1px solid #F3F4F6;
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 16px 0; border-bottom: 1px solid #F3F4F6;
     }
     .agenda-item:last-child { border-bottom: none; padding-bottom: 0; }
     
-    .greeting-header { margin-top: 10px; margin-bottom: 20px; }
-    .greeting-header h1 { font-size: 24px; font-weight: 800; color: #111827; margin: 0;}
-    .greeting-header p { font-size: 14px; color: #6B7280; margin: 5px 0 0 0;}
+    /* Grid do Day Pulse */
+    .pulse-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px; margin-top: 15px;
+    }
+    .pulse-box {
+        background-color: #F9FAFB; border-radius: 12px; padding: 20px 10px;
+        text-align: center; border: 1px solid #E5E7EB;
+    }
+    .p-title { font-size: 11px; color: #6B7280; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;}
+    .p-val { font-size: 20px; font-weight: 800; margin-top: 8px; color: #111827; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. AUTENTICAÇÃO REAL
+# 4. AUTENTICAÇÃO REAL MSAL
 # ==========================================
 if "logado_ms" not in st.session_state: st.session_state["logado_ms"] = False
 if "access_token" not in st.session_state: st.session_state["access_token"] = None
@@ -107,41 +112,53 @@ if "code" in query_params and not st.session_state["logado_ms"]:
         st.rerun()
 
 if not st.session_state["logado_ms"]:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("""
-    <div class="nexuma-card" style="text-align: center; padding: 30px 20px;">
-        <h2 class="text-dark">GestorHub</h2>
-        <p class="text-gray" style="margin-bottom: 30px;">Acesso Corporativo</p>
-    </div>
-    """, unsafe_allow_html=True)
-    msal_app = get_msal_app()
-    auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
-    st.link_button("Entrar com Microsoft 365", auth_url, type="primary", use_container_width=True)
+    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        <div class="nexuma-card" style="text-align: center; padding: 50px;">
+            <h1 style="color: #111827; font-weight: 800; font-size: 32px;">GestorHub</h1>
+            <p style="color: #6B7280; margin-bottom: 40px;">Centro de Comando Executivo</p>
+        </div>
+        """, unsafe_allow_html=True)
+        msal_app = get_msal_app()
+        auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
+        st.link_button("Entrar com Microsoft 365", auth_url, type="primary", use_container_width=True)
     st.stop()
 
 # ==========================================
-# 5. PROCESSAMENTO DA AGENDA REAL
+# 5. PROCESSAMENTO DE DADOS (AGENDA E PULSE)
 # ==========================================
 eventos_hoje = buscar_agenda_microsoft(st.session_state["access_token"])
 total_eventos = len(eventos_hoje)
 minutos_ocupados = 0
+termino_do_dia = "--:--"
 
-for evento in eventos_hoje:
-    inicio = pd.to_datetime(evento['start']['dateTime']).replace(tzinfo=None)
-    fim = pd.to_datetime(evento['end']['dateTime']).replace(tzinfo=None)
-    minutos_ocupados += (fim - inicio).total_seconds() / 60
+if total_eventos > 0:
+    for ev in eventos_hoje:
+        inicio = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None)
+        fim = pd.to_datetime(ev['end']['dateTime']).replace(tzinfo=None)
+        minutos_ocupados += (fim - inicio).total_seconds() / 60
+    termino_do_dia = pd.to_datetime(eventos_hoje[-1]['end']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
 
 horas_ocupadas = int(minutos_ocupados // 60)
 min_ocupados_rest = int(minutos_ocupados % 60)
+minutos_livres = 480 - minutos_ocupados if (480 - minutos_ocupados) > 0 else 0
 
 # ==========================================
-# 6. MENU LATERAL (HAMBÚRGUER NO CELULAR)
+# 6. MENU LATERAL (SIDEBAR)
 # ==========================================
 with st.sidebar:
-    st.markdown("<h3 class='text-dark'>📱 Navegação</h3>", unsafe_allow_html=True)
-    opcao = st.radio("",["🏠 Início", "📊 Chamados", "🎥 tl;dv"], label_visibility="collapsed")
-    st.divider()
-    if st.button("🚪 Sair", use_container_width=True):
+    st.markdown("""
+        <div style="padding: 10px 0 30px 0;">
+            <h2 style="margin:0; font-weight:800; font-size:24px;">GestorHub</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    opcao = st.radio("Navegação", ["🏠 Início", "📊 Chamados", "🎥 tl;dv"], label_visibility="collapsed")
+    
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    if st.button("Sair da Conta", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
@@ -150,34 +167,22 @@ with st.sidebar:
 # ==========================================
 if opcao == "🏠 Início":
     
+    # Header
     st.markdown("""
-    <div class="greeting-header">
+    <div class="dashboard-header">
         <h1>Olá, Gestor!</h1>
-        <p>Resumo do seu dia</p>
+        <p>Visão geral da sua agenda sincronizada com a Microsoft</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Métricas adaptadas para celular (empilhadas)
-    st.markdown(f"""
-    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <div class="nexuma-card" style="flex: 1; margin-bottom: 0;">
-            <div class="metric-title">Eventos</div>
-            <div class="metric-value">{total_eventos}</div>
-        </div>
-        <div class="nexuma-card" style="flex: 1; margin-bottom: 0;">
-            <div class="metric-title">Ocupado</div>
-            <div class="metric-value">{horas_ocupadas}h {min_ocupados_rest}m</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Lista da Agenda
-    st.markdown("<h4 class='text-dark' style='margin-bottom: 10px;'>Sua Agenda</h4>", unsafe_allow_html=True)
+    # Bloco Principal: Agenda
+    st.markdown("<h4 style='color:#111827; margin-bottom:15px;'>Sua Agenda Hoje</h4>", unsafe_allow_html=True)
     
     if total_eventos == 0:
         st.markdown("""
-        <div class="nexuma-card" style="text-align: center;">
-            <p class="text-gray" style="margin: 0;">Sua agenda está livre hoje.</p>
+        <div class="nexuma-card" style="text-align: center; padding: 40px;">
+            <span style="font-size: 30px;">🎉</span>
+            <p style="color: #6B7280; font-size: 16px; margin-top: 10px;">Sua agenda está livre hoje.</p>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -193,47 +198,69 @@ if opcao == "🏠 Início":
             elif 'onlineMeetingUrl' in ev and ev['onlineMeetingUrl']:
                 link = ev['onlineMeetingUrl']
                 
-            botao_html = f"<a href='{link}' target='_blank' class='btn-mobile'>Entrar na Reunião</a>" if link else "<p class='text-gray' style='font-size:12px; margin-top:5px;'><i>Sem link de reunião</i></p>"
+            botao_html = f"<a href='{link}' target='_blank' class='btn-primary' style='width:auto;'>Entrar na Reunião</a>" if link else "<span style='color:#9CA3AF; font-size:13px;'>Sem link online</span>"
             
             agenda_html += f"""
             <div class="agenda-item">
-                <h4 class="text-dark" style="margin: 0; font-size: 15px;">{titulo}</h4>
-                <p class="text-gray" style="margin: 0; font-size: 13px; margin-top: 2px;">🕒 {hora_ini} - {hora_fim}</p>
-                {botao_html}
+                <div style="flex:1;">
+                    <h4 style="margin: 0; font-size: 16px; color:#111827;">{titulo}</h4>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color:#6B7280;">🕒 {hora_ini} - {hora_fim}</p>
+                </div>
+                <div>{botao_html}</div>
             </div>
             """
         agenda_html += "</div>"
         st.markdown(agenda_html, unsafe_allow_html=True)
 
+    # Bloco Inferior: Day Pulse (Como solicitado, posicionado no final)
+    st.markdown("<h4 style='color:#111827; margin-top:30px; margin-bottom:5px;'>Day Pulse</h4>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="nexuma-card">
+        <div class="pulse-grid">
+            <div class="pulse-box"><div class="p-title">EVENTOS</div><div class="p-val" style="color:#3B82F6;">{total_eventos}</div></div>
+            <div class="pulse-box"><div class="p-title">OCUPADO</div><div class="p-val">{horas_ocupadas}h {min_ocupados_rest}m</div></div>
+            <div class="pulse-box"><div class="p-title">LIVRE</div><div class="p-val" style="color:#10B981;">{int(minutos_livres // 60)}h {int(minutos_livres % 60)}m</div></div>
+            <div class="pulse-box"><div class="p-title">TÉRMINO</div><div class="p-val" style="color:#EF4444;">{termino_do_dia}</div></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 elif opcao == "📊 Chamados":
     st.markdown("""
-    <div class="greeting-header">
+    <div class="dashboard-header">
         <h1>Chamados</h1>
-        <p>SLA Power BI</p>
+        <p>Acompanhamento de SLAs em tempo real</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Iframe com width 100% e altura para celular
-    st.markdown('<div class="nexuma-card" style="padding: 5px;">', unsafe_allow_html=True)
+    st.markdown('<div class="nexuma-card" style="padding: 10px;">', unsafe_allow_html=True)
     link_pbi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
-    st.components.v1.iframe(link_pbi, width="100%", height=500, scrolling=True)
+    st.components.v1.iframe(link_pbi, width=1200, height=700, scrolling=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 elif opcao == "🎥 Resumos tl;dv":
     st.markdown("""
-    <div class="greeting-header">
-        <h1>tl;dv</h1>
-        <p>Resumos das reuniões</p>
+    <div class="dashboard-header">
+        <h1>Resumos de Reuniões</h1>
+        <p>Insights extraídos das reuniões (tl;dv)</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
     <div class="nexuma-card">
-        <h4 class="text-dark" style="margin:0;">Comitê de Mudanças</h4>
-        <p class="text-gray" style="font-size: 12px; margin-top: 2px;">24 de Abril • MS Teams</p>
-        <hr style="border: 0; border-top: 1px solid #F3F4F6; margin: 10px 0;">
-        <p class="text-dark" style="font-size: 14px;"><b>Resumo:</b> Aprovação da atualização do BD do ERP. Migração de e-mail rejeitada.</p>
-        <p class="text-dark" style="font-size: 14px; margin-top:5px;"><b>Decisões:</b><br><span style="color: #10B981;">• Aprovado: BD ERP</span><br><span style="color: #EF4444;">• Rejeitado: E-mails</span></p>
-        <a href="#" class="btn-outline-mobile">Assistir no tl;dv</a>
+        <h3 style="color:#111827; margin:0;">Comitê de Mudanças (CAB)</h3>
+        <p style="color:#6B7280; font-size:14px; margin-top:4px;">Hoje, 10:00 • Duração: 45m</p>
+        
+        <div style="background-color:#F9FAFB; padding:15px; border-radius:8px; margin-top:20px;">
+            <p style="color:#111827; font-size:14px; margin:0;"><b>📝 Resumo:</b> A equipe aprovou a atualização do BD do ERP para este domingo. A migração do servidor de e-mails foi rejeitada por falta de testes de segurança.</p>
+        </div>
+        
+        <div style="margin-top: 15px;">
+            <span style="background-color:#D1FAE5; color:#065F46; padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold; margin-right:10px;">✔️ Aprovado: BD ERP</span>
+            <span style="background-color:#FEE2E2; color:#991B1B; padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold;">❌ Rejeitado: Migração E-mails</span>
+        </div>
+        
+        <br>
+        <a href="#" class="btn-primary" style="width: auto;">🔗 Assistir Gravação no tl;dv</a>
     </div>
     """, unsafe_allow_html=True)
