@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # ==========================================
 # 1. CONFIGURAÇÃO
 # ==========================================
-st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="collapsed")
 
 # ==========================================
 # 2. CREDENCIAIS DA MICROSOFT
@@ -25,86 +25,98 @@ def buscar_agenda_microsoft(token):
     hoje = datetime.utcnow() - timedelta(hours=3)
     inicio_dia = hoje.replace(hour=0, minute=0, second=0).strftime('%Y-%m-%dT%H:%M:%S')
     fim_dia = hoje.replace(hour=23, minute=59, second=59).strftime('%Y-%m-%dT%H:%M:%S')
-
     url = f"https://graph.microsoft.com/v1.0/me/calendarView?startDateTime={inicio_dia}&endDateTime={fim_dia}&$orderby=start/dateTime"
     headers = {'Authorization': f'Bearer {token}', 'Prefer': 'outlook.timezone="America/Sao_Paulo"'}
-
     resposta = requests.get(url, headers=headers)
     if resposta.status_code == 200:
         return resposta.json().get('value', [])
     return []
 
 # ==========================================
-# 3. CSS PREMIUM
+# 3. CSS + BOTAO HAMBURGER FLUTUANTE
 # ==========================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
 
-    /* Fundo claro no conteúdo principal */
     .stApp, [data-testid="stAppViewContainer"] { background-color: #F9FAFB !important; }
 
-    /* Header e footer */
-    header[data-testid="stHeader"] { background: transparent !important; }
+    header[data-testid="stHeader"] { background: transparent !important; height: 0 !important; }
     .stAppDeployButton { display: none !important; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
 
-    /* Sidebar textos */
+    /* Esconde AMBOS os botoes nativos de toggle da sidebar */
+    [data-testid="stSidebarCollapseButton"] { display: none !important; }
+    button[data-testid="collapsedControl"]  { display: none !important; }
+
+    /* SIDEBAR PRETA */
+    [data-testid="stSidebar"] { background-color: #111827 !important; }
+
+    [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] label {
-        color: #111827 !important;
-        font-weight: 600;
-        font-family: 'Inter', sans-serif;
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span {
+        color: #F9FAFB !important;
+        font-family: 'Inter', sans-serif !important;
     }
 
-    /* CORREÇÃO DO SELECTBOX — força fundo branco e texto escuro em TODOS os estados */
     [data-testid="stSidebar"] div[data-baseweb="select"] > div,
     [data-testid="stSidebar"] div[data-baseweb="select"] > div:focus,
     [data-testid="stSidebar"] div[data-baseweb="select"] > div:hover {
-        background-color: #FFFFFF !important;
-        color: #111827 !important;
-        border: 1.5px solid #D1D5DB !important;
+        background-color: #1F2937 !important;
+        color: #F9FAFB !important;
+        border: 1.5px solid #374151 !important;
         border-radius: 8px !important;
     }
-
-    /* Texto dentro do selectbox */
     [data-testid="stSidebar"] div[data-baseweb="select"] span,
-    [data-testid="stSidebar"] div[data-baseweb="select"] div {
-        color: #111827 !important;
-        font-family: 'Inter', sans-serif !important;
-    }
+    [data-testid="stSidebar"] div[data-baseweb="select"] div { color: #F9FAFB !important; }
+    [data-testid="stSidebar"] div[data-baseweb="select"] svg { fill: #9CA3AF !important; }
 
-    /* Seta do selectbox */
-    [data-testid="stSidebar"] div[data-baseweb="select"] svg {
-        fill: #111827 !important;
-    }
+    ul[data-baseweb="menu"] { background-color: #1F2937 !important; border: 1px solid #374151 !important; border-radius: 8px !important; }
+    ul[data-baseweb="menu"] li { color: #F9FAFB !important; font-family: 'Inter', sans-serif !important; }
+    ul[data-baseweb="menu"] li:hover { background-color: #374151 !important; }
 
-    /* Dropdown flutuante do selectbox */
-    ul[data-baseweb="menu"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        border-radius: 8px !important;
-    }
-    ul[data-baseweb="menu"] li {
-        color: #111827 !important;
-        font-family: 'Inter', sans-serif !important;
-    }
-    ul[data-baseweb="menu"] li:hover {
-        background-color: #F3F4F6 !important;
-    }
-
-    /* Botão Sair */
     [data-testid="stSidebar"] button {
-        background-color: #FEE2E2 !important;
-        color: #991B1B !important;
-        border: 1px solid #FCA5A5 !important;
+        background-color: #7F1D1D !important;
+        color: #FEE2E2 !important;
+        border: 1px solid #991B1B !important;
         font-weight: 600 !important;
         border-radius: 8px !important;
     }
-    [data-testid="stSidebar"] button:hover { background-color: #FECACA !important; }
+    [data-testid="stSidebar"] button:hover { background-color: #991B1B !important; }
 
-    /* Cards */
+    /* PILL HAMBURGER FLUTUANTE */
+    #menu-pill {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 99999;
+        background-color: #111827;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 50px;
+        padding: 10px 20px;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.30);
+        font-family: 'Inter', sans-serif;
+        transition: background 0.2s, transform 0.1s;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+    }
+    #menu-pill:active { transform: scale(0.96); }
+    #menu-pill .pill-label { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; }
+
+    /* Empurra o conteudo para nao ficar atras do pill */
+    .dashboard-header { margin-top: 64px; margin-bottom: 30px; font-family: 'Inter', sans-serif; }
+    .dashboard-header h1 { font-size: 28px; font-weight: 800; color: #111827; margin: 0; }
+    .dashboard-header p { font-size: 15px; color: #6B7280; margin: 4px 0 0 0; }
+
     .nexuma-card {
         background-color: #FFFFFF;
         border-radius: 16px;
@@ -114,10 +126,6 @@ st.markdown("""
         margin-bottom: 20px;
         font-family: 'Inter', 'Segoe UI', sans-serif;
     }
-
-    .dashboard-header { margin-top: 10px; margin-bottom: 30px; font-family: 'Inter', sans-serif; }
-    .dashboard-header h1 { font-size: 28px; font-weight: 800; color: #111827; margin: 0; }
-    .dashboard-header p { font-size: 15px; color: #6B7280; margin: 4px 0 0 0; }
 
     .btn-primary {
         background-color: #111827;
@@ -136,17 +144,6 @@ st.markdown("""
     }
     .btn-primary:hover { background-color: #374151; }
 
-    .agenda-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px 0;
-        border-bottom: 1px solid #F3F4F6;
-        font-family: 'Inter', sans-serif;
-        gap: 16px;
-    }
-    .agenda-item:last-child { border-bottom: none; padding-bottom: 0; }
-
     .pulse-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -163,51 +160,33 @@ st.markdown("""
     }
     .p-title { font-size: 11px; color: #6B7280; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
     .p-val { font-size: 20px; font-weight: 800; margin-top: 8px; color: #111827; }
-
-    /* ===== SIDEBAR PRETA E SEMPRE VISÍVEL ===== */
-    [data-testid="stSidebar"] {
-        background-color: #111827 !important;
-        min-width: 230px !important;
-    }
-    /* Esconde o botão de colapso */
-    [data-testid="stSidebarCollapseButton"],
-    button[data-testid="collapsedControl"] { display: none !important; }
-
-    /* Textos brancos na sidebar */
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] span { color: #F9FAFB !important; font-family: 'Inter', sans-serif !important; }
-
-    /* Selectbox escuro */
-    [data-testid="stSidebar"] div[data-baseweb="select"] > div,
-    [data-testid="stSidebar"] div[data-baseweb="select"] > div:focus,
-    [data-testid="stSidebar"] div[data-baseweb="select"] > div:hover {
-        background-color: #1F2937 !important;
-        color: #F9FAFB !important;
-        border: 1.5px solid #374151 !important;
-        border-radius: 8px !important;
-    }
-    [data-testid="stSidebar"] div[data-baseweb="select"] span,
-    [data-testid="stSidebar"] div[data-baseweb="select"] div { color: #F9FAFB !important; }
-    [data-testid="stSidebar"] div[data-baseweb="select"] svg { fill: #9CA3AF !important; }
-
-    /* Dropdown do selectbox */
-    ul[data-baseweb="menu"] { background-color: #1F2937 !important; border: 1px solid #374151 !important; border-radius: 8px !important; }
-    ul[data-baseweb="menu"] li { color: #F9FAFB !important; font-family: 'Inter', sans-serif !important; }
-    ul[data-baseweb="menu"] li:hover { background-color: #374151 !important; }
-
-    /* Botão Sair */
-    [data-testid="stSidebar"] button {
-        background-color: #7F1D1D !important; color: #FEE2E2 !important;
-        border: 1px solid #991B1B !important; font-weight: 600 !important; border-radius: 8px !important;
-    }
-    [data-testid="stSidebar"] button:hover { background-color: #991B1B !important; }
 </style>
+
+<!-- PILL HAMBURGER -->
+<button id="menu-pill" onclick="toggleSidebar()">
+    &#9776; <span class="pill-label">Menu</span>
+</button>
+
+<script>
+function toggleSidebar() {
+    var doc = window.parent.document;
+
+    // Tenta o botao de colapso (sidebar aberta)
+    var btnCollapse = doc.querySelector('[data-testid="stSidebarCollapseButton"] button');
+    // Tenta o botao de expandir (sidebar fechada)
+    var btnExpand = doc.querySelector('[data-testid="collapsedControl"]');
+
+    if (btnCollapse) {
+        btnCollapse.click();
+    } else if (btnExpand) {
+        btnExpand.click();
+    }
+}
+</script>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. AUTENTICAÇÃO REAL MSAL
+# 4. AUTENTICACAO REAL MSAL
 # ==========================================
 if "logado_ms" not in st.session_state:
     st.session_state["logado_ms"] = False
@@ -261,7 +240,7 @@ min_ocupados_rest = int(minutos_ocupados % 60)
 minutos_livres = max(0, 480 - minutos_ocupados)
 
 # ==========================================
-# 6. MENU LATERAL (SIDEBAR)
+# 6. SIDEBAR
 # ==========================================
 with st.sidebar:
     st.markdown("""
@@ -271,12 +250,12 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown(
-        "<p style='font-size:12px; color:#9CA3AF; margin-bottom:5px; letter-spacing:0.08em; text-transform:uppercase; font-family: Inter, sans-serif;'>Navegação</p>",
+        "<p style='font-size:12px; color:#9CA3AF; margin-bottom:5px; letter-spacing:0.08em; text-transform:uppercase; font-family: Inter, sans-serif;'>Navegacao</p>",
         unsafe_allow_html=True
     )
     opcao = st.selectbox(
-        "Navegação",
-        ["🏠 Início", "📊 Chamados", "🎥 Resumos tl;dv"],
+        "Navegacao",
+        ["🏠 Inicio", "📊 Chamados", "🎥 Resumos tl;dv"],
         label_visibility="collapsed"
     )
 
@@ -286,14 +265,14 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 7. TELAS DO APLICATIVO
+# 7. TELAS
 # ==========================================
-if opcao == "🏠 Início":
+if opcao == "🏠 Inicio":
 
     st.markdown("""
     <div class="dashboard-header">
-        <h1>Olá, Gestor!</h1>
-        <p>Visão geral da sua agenda sincronizada com a Microsoft</p>
+        <h1>Ola, Gestor!</h1>
+        <p>Visao geral da sua agenda sincronizada com a Microsoft</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -311,18 +290,15 @@ if opcao == "🏠 Início":
         st.markdown("""
         <div class="nexuma-card" style="text-align: center; padding: 40px;">
             <span style="font-size: 30px;">🎉</span>
-            <p style="color: #6B7280; font-size: 16px; margin-top: 10px; font-family: Inter, sans-serif;">Sua agenda está livre hoje.</p>
+            <p style="color: #6B7280; font-size: 16px; margin-top: 10px; font-family: Inter, sans-serif;">Sua agenda esta livre hoje.</p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # ✅ CORREÇÃO: Renderiza cada evento individualmente com st.markdown
-        # Isso evita o bug de HTML escapado que aparecia em tela
         st.markdown('<div class="nexuma-card">', unsafe_allow_html=True)
-
         for i, ev in enumerate(eventos_hoje):
             hora_ini = pd.to_datetime(ev['start']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
             hora_fim = pd.to_datetime(ev['end']['dateTime']).replace(tzinfo=None).strftime("%H:%M")
-            titulo = ev.get('subject', 'Sem título')
+            titulo = ev.get('subject', 'Sem titulo')
 
             link = ""
             if ev.get('onlineMeeting') and ev['onlineMeeting'].get('joinUrl'):
@@ -330,13 +306,10 @@ if opcao == "🏠 Início":
             elif ev.get('onlineMeetingUrl'):
                 link = ev['onlineMeetingUrl']
 
-            if link:
-                botao_html = f'<a href="{link}" target="_blank" class="btn-primary">Entrar na Reunião</a>'
-            else:
-                botao_html = '<span style="color:#9CA3AF; font-size:13px; font-family: Inter, sans-serif;">Sem link online</span>'
+            botao_html = f'<a href="{link}" target="_blank" class="btn-primary">Entrar na Reuniao</a>' if link else \
+                         '<span style="color:#9CA3AF; font-size:13px; font-family: Inter, sans-serif;">Sem link online</span>'
 
             borda = "" if i == len(eventos_hoje) - 1 else "border-bottom: 1px solid #F3F4F6;"
-
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 0; {borda} gap:16px;">
                 <div style="flex:1;">
@@ -346,20 +319,16 @@ if opcao == "🏠 Início":
                 <div>{botao_html}</div>
             </div>
             """, unsafe_allow_html=True)
-
         st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown(
-        "<h4 style='color:#111827; margin-top:30px; margin-bottom:5px; font-family: Inter, sans-serif;'>Day Pulse</h4>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<h4 style='color:#111827; margin-top:30px; margin-bottom:5px; font-family: Inter, sans-serif;'>Day Pulse</h4>", unsafe_allow_html=True)
     st.markdown(f"""
     <div class="nexuma-card">
         <div class="pulse-grid">
             <div class="pulse-box"><div class="p-title">EVENTOS</div><div class="p-val" style="color:#3B82F6;">{total_eventos}</div></div>
             <div class="pulse-box"><div class="p-title">OCUPADO</div><div class="p-val">{horas_ocupadas}h {min_ocupados_rest}m</div></div>
             <div class="pulse-box"><div class="p-title">LIVRE</div><div class="p-val" style="color:#10B981;">{int(minutos_livres // 60)}h {int(minutos_livres % 60)}m</div></div>
-            <div class="pulse-box"><div class="p-title">TÉRMINO</div><div class="p-val" style="color:#EF4444;">{termino_do_dia}</div></div>
+            <div class="pulse-box"><div class="p-title">TERMINO</div><div class="p-val" style="color:#EF4444;">{termino_do_dia}</div></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -379,18 +348,18 @@ elif opcao == "📊 Chamados":
 elif opcao == "🎥 Resumos tl;dv":
     st.markdown("""
     <div class="dashboard-header">
-        <h1>Resumos de Reuniões</h1>
-        <p>Insights extraídos das reuniões (tl;dv)</p>
+        <h1>Resumos de Reunioes</h1>
+        <p>Insights extraidos das reunioes (tl;dv)</p>
     </div>
     """, unsafe_allow_html=True)
     st.markdown("""
     <div class="nexuma-card">
-        <h3 style="color:#111827; margin:0; font-family: Inter, sans-serif;">Comitê de Mudanças (CAB)</h3>
-        <p style="color:#6B7280; font-size:14px; margin-top:4px; font-family: Inter, sans-serif;">Hoje, 10:00 • Duração: 45m</p>
+        <h3 style="color:#111827; margin:0; font-family: Inter, sans-serif;">Comite de Mudancas (CAB)</h3>
+        <p style="color:#6B7280; font-size:14px; margin-top:4px; font-family: Inter, sans-serif;">Hoje, 10:00 &bull; Duracao: 45m</p>
         <div style="background-color:#F9FAFB; padding:15px; border-radius:8px; margin-top:20px;">
-            <p style="color:#111827; font-size:14px; margin:0; font-family: Inter, sans-serif;"><b>📝 Resumo:</b> A equipe aprovou a atualização do BD do ERP para este domingo.</p>
+            <p style="color:#111827; font-size:14px; margin:0; font-family: Inter, sans-serif;"><b>📝 Resumo:</b> A equipe aprovou a atualizacao do BD do ERP para este domingo.</p>
         </div>
         <br>
-        <a href="#" class="btn-primary" style="width: auto;">🔗 Assistir Gravação no tl;dv</a>
+        <a href="#" class="btn-primary" style="width: auto;">🔗 Assistir Gravacao no tl;dv</a>
     </div>
     """, unsafe_allow_html=True)
