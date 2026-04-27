@@ -12,8 +12,8 @@ st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", init
 # ==========================================
 # 2. CREDENCIAIS DA MICROSOFT (DADOS REAIS)
 # ==========================================
-CLIENT_ID = "93bb2fa9-7fad-44fe-899f-2f8a143945bd"
-CLIENT_SECRET = "PGS8Q~UJ0E3r_QNHb~lDgjbiyq2OGO5Swr3zGcXo"
+CLIENT_ID = "261febe1-b827-452e-8bc5-e5ae52a6340c"
+CLIENT_SECRET = "~pQ8Q~ckiPJbeP~FOA0yTOySNzGCxbVTIfVmLcV_"
 
 # ⚠️ AQUI ESTÁ A MUDANÇA: Usar "common" permite que o @outlook.com funcione!
 AUTHORITY = "https://login.microsoftonline.com/common"
