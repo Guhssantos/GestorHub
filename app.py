@@ -162,27 +162,6 @@ st.markdown("""
     .p-val { font-size: 20px; font-weight: 800; margin-top: 8px; color: #111827; }
 </style>
 
-<!-- PILL HAMBURGER -->
-<button id="menu-pill" onclick="toggleSidebar()">
-    &#9776; <span class="pill-label">Menu</span>
-</button>
-
-<script>
-function toggleSidebar() {
-    var doc = window.parent.document;
-
-    // Tenta o botao de colapso (sidebar aberta)
-    var btnCollapse = doc.querySelector('[data-testid="stSidebarCollapseButton"] button');
-    // Tenta o botao de expandir (sidebar fechada)
-    var btnExpand = doc.querySelector('[data-testid="collapsedControl"]');
-
-    if (btnCollapse) {
-        btnCollapse.click();
-    } else if (btnExpand) {
-        btnExpand.click();
-    }
-}
-</script>
 """, unsafe_allow_html=True)
 
 # ==========================================
@@ -219,6 +198,24 @@ if not st.session_state["logado_ms"]:
         auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
         st.link_button("Entrar com Microsoft 365", auth_url, type="primary", use_container_width=True)
     st.stop()
+
+# ==========================================
+# PILL HAMBURGER — so aparece apos o login
+# ==========================================
+st.markdown("""
+<button id="menu-pill" onclick="toggleSidebar()">
+    &#9776; <span class="pill-label">Menu</span>
+</button>
+<script>
+function toggleSidebar() {
+    var doc = window.parent.document;
+    var btnCollapse = doc.querySelector('[data-testid="stSidebarCollapseButton"] button');
+    var btnExpand   = doc.querySelector('[data-testid="collapsedControl"]');
+    if (btnCollapse) { btnCollapse.click(); }
+    else if (btnExpand) { btnExpand.click(); }
+}
+</script>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # 5. PROCESSAMENTO DE DADOS
