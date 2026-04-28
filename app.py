@@ -1,444 +1,155 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import msal
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
-st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide")
 
-CLIENT_ID     = "261febe1-b827-452e-8bc5-e5ae52a6340c"
-CLIENT_SECRET = "~pQ8Q~ckiPJbeP~FOA0yTOySNzGCxbVTIfVmLcV_"
+# CONFIG
+CLIENT_ID     = "SEU_CLIENT_ID"
+CLIENT_SECRET = "SEU_CLIENT_SECRET"
 AUTHORITY     = "https://login.microsoftonline.com/common"
 REDIRECT_URI  = "https://gestor-app.streamlit.app"
-SCOPE         = ["User.Read", "Calendars.ReadWrite"]
-TZ_SP         = ZoneInfo("America/Sao_Paulo")
-TZ_UTC        = ZoneInfo("UTC")
+SCOPE         = ["User.Read", "Calendars.Read"]
 
-def get_msal_app():
-    return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
+TZ_SP = ZoneInfo("America/Sao_Paulo")
+TZ_UTC = ZoneInfo("UTC")
 
-def buscar_agenda(token, data_alvo):
-    inicio_sp  = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 0,  0,  0,  tzinfo=TZ_SP)
-    fim_sp     = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 23, 59, 59, tzinfo=TZ_SP)
-    inicio_utc = inicio_sp.astimezone(TZ_UTC).strftime('%Y-%m-%dT%H:%M:%S')
-    fim_utc    = fim_sp.astimezone(TZ_UTC).strftime('%Y-%m-%dT%H:%M:%S')
-    url = (f"https://graph.microsoft.com/v1.0/me/calendarView"
-           f"?startDateTime={inicio_utc}Z&endDateTime={fim_utc}Z&$orderby=start/dateTime&$top=50")
-    headers = {'Authorization': f'Bearer {token}',
-               'Prefer': 'outlook.timezone="America/Sao_Paulo"'}
-    r = requests.get(url, headers=headers)
-    if r.status_code != 200:
-        return []
-    resultado = []
-    for ev in r.json().get('value', []):
-        dt = pd.to_datetime(ev['start']['dateTime'])
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=TZ_SP)
-        else:
-            dt = dt.astimezone(TZ_SP)
-        if dt.date() == data_alvo:
-            resultado.append(ev)
-    return resultado
-
-# ── CSS GLOBAL ────────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-
-.stApp,[data-testid="stAppViewContainer"]{background:#F9FAFB!important}
-header[data-testid="stHeader"]{background:transparent!important;height:0!important}
-.stAppDeployButton,#MainMenu{display:none!important;visibility:hidden}
-footer{visibility:hidden}
-
-/* Esconde botoes nativos da sidebar */
-[data-testid="stSidebarCollapseButton"]{display:none!important}
-button[data-testid="collapsedControl"]{display:none!important}
-
-/* SIDEBAR */
-[data-testid="stSidebar"]{background:#111827!important}
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] span{color:#F9FAFB!important;font-family:'Inter',sans-serif!important}
-[data-testid="stSidebar"] div[data-baseweb="select"]>div{background:#1F2937!important;color:#F9FAFB!important;border:1.5px solid #374151!important;border-radius:8px!important}
-[data-testid="stSidebar"] div[data-baseweb="select"] span,
-[data-testid="stSidebar"] div[data-baseweb="select"] div{color:#F9FAFB!important}
-[data-testid="stSidebar"] div[data-baseweb="select"] svg{fill:#9CA3AF!important}
-ul[data-baseweb="menu"]{background:#1F2937!important;border:1px solid #374151!important;border-radius:8px!important}
-ul[data-baseweb="menu"] li{color:#F9FAFB!important;font-family:'Inter',sans-serif!important}
-ul[data-baseweb="menu"] li:hover{background:#374151!important}
-[data-testid="stSidebar"] button{background:#7F1D1D!important;color:#FEE2E2!important;border:1px solid #991B1B!important;font-weight:600!important;border-radius:8px!important}
-[data-testid="stSidebar"] button:hover{background:#991B1B!important}
-
-/* PILL HAMBURGER */
-#menu-pill{
-    position:fixed;top:14px;left:14px;z-index:999999;
-    background:#111827;color:#FFF;border:none;border-radius:999px;
-    padding:9px 18px 9px 14px;font-size:16px;line-height:1.2;
-    cursor:pointer;display:flex;align-items:center;gap:7px;
-    box-shadow:0 4px 20px rgba(0,0,0,.35);font-family:'Inter',sans-serif;
-    transition:background .2s,transform .12s;
-    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;
-}
-#menu-pill:active{transform:scale(.93);background:#374151}
-#menu-pill .pi{font-size:17px;line-height:1}
-#menu-pill .pl{font-size:13px;font-weight:700;letter-spacing:.03em}
-
-/* LAYOUT */
-.dashboard-header{margin-top:68px;margin-bottom:20px;font-family:'Inter',sans-serif}
-.dashboard-header h1{font-size:26px;font-weight:800;color:#111827;margin:0}
-.dashboard-header p{font-size:14px;color:#6B7280;margin:4px 0 0}
-
-.nexuma-card{background:#FFF;border-radius:16px;padding:20px;
-    box-shadow:0 2px 12px rgba(0,0,0,.04);border:1px solid #E5E7EB;margin-bottom:18px;
-    font-family:'Inter',sans-serif}
-
-.btn-primary{background:#111827;color:#FFF!important;padding:9px 16px;border-radius:8px;
-    text-decoration:none;font-weight:600;font-size:13px;display:inline-block;
-    text-align:center;border:none;cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif}
-.btn-primary:hover{background:#374151}
-
-.pulse-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));
-    gap:12px;margin-top:12px;font-family:'Inter',sans-serif}
-.pulse-box{background:#F9FAFB;border-radius:12px;padding:16px 8px;
-    text-align:center;border:1px solid #E5E7EB}
-.p-title{font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;letter-spacing:.6px}
-.p-val{font-size:19px;font-weight:800;margin-top:6px;color:#111827}
-
-.pbi-wrapper{position:relative;width:100%;padding-bottom:62%;height:0;overflow:hidden;border-radius:12px}
-.pbi-wrapper iframe{position:absolute;top:0;left:0;width:100%!important;height:100%!important;border:none}
-</style>
-""", unsafe_allow_html=True)
-
-# ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────────
-for k, v in [("logado_ms", False), ("access_token", None)]:
+# SESSION STATE
+for k, v in {
+    "logado": False,
+    "token": None,
+    "data": datetime.now(TZ_SP).date()
+}.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-qp = st.query_params
-if "code" in qp and not st.session_state["logado_ms"]:
-    app = get_msal_app()
-    res = app.acquire_token_by_authorization_code(qp["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI)
-    if "access_token" in res:
-        st.session_state["access_token"] = res["access_token"]
-        st.session_state["logado_ms"] = True
+# MSAL
+def get_app():
+    return msal.ConfidentialClientApplication(
+        CLIENT_ID,
+        authority=AUTHORITY,
+        client_credential=CLIENT_SECRET
+    )
+
+# LOGIN
+params = st.query_params
+if "code" in params and not st.session_state["logado"]:
+    result = get_app().acquire_token_by_authorization_code(
+        params["code"],
+        scopes=SCOPE,
+        redirect_uri=REDIRECT_URI
+    )
+    if "access_token" in result:
+        st.session_state["token"] = result["access_token"]
+        st.session_state["logado"] = True
         st.query_params.clear()
         st.rerun()
 
-# ── TELA DE LOGIN ─────────────────────────────────────────────────────────────
-if not st.session_state["logado_ms"]:
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 2, 1])
-    with col:
-        st.markdown("""
-        <div class="nexuma-card" style="text-align:center;padding:50px">
-            <h1 style="color:#111827;font-weight:800;font-size:32px;font-family:'Inter',sans-serif">GestorHub</h1>
-            <p style="color:#6B7280;margin-bottom:40px;font-family:'Inter',sans-serif">Centro de Comando Executivo</p>
-        </div>""", unsafe_allow_html=True)
-        auth_url = get_msal_app().get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
-        st.link_button("Entrar com Microsoft 365", auth_url, type="primary", use_container_width=True)
+# TELA LOGIN
+if not st.session_state["logado"]:
+    st.title("GestorHub")
+    auth_url = get_app().get_authorization_request_url(
+        SCOPE,
+        redirect_uri=REDIRECT_URI
+    )
+    st.link_button("Entrar com Microsoft", auth_url)
     st.stop()
 
-# ── BOTÃO MENU (usa components.v1.html → acesso real ao DOM pai) ──────────────
-components.html("""
-<style>
-#menu-pill{
-    position:fixed;top:14px;left:14px;z-index:999999;
-    background:#111827;color:#FFF;border:none;border-radius:999px;
-    padding:9px 18px 9px 14px;font-size:16px;line-height:1.2;
-    cursor:pointer;display:flex;align-items:center;gap:7px;
-    box-shadow:0 4px 20px rgba(0,0,0,.35);font-family:'Inter',sans-serif;
-    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;
-}
-#menu-pill:active{transform:scale(.93)}
-.pi{font-size:17px;line-height:1}
-.pl{font-size:13px;font-weight:700;letter-spacing:.03em}
-</style>
-<button id="menu-pill" onclick="toggleSidebar()">
-    <span class="pi">&#9776;</span>
-    <span class="pl">Menu</span>
-</button>
-<script>
-function toggleSidebar(){
-    // tenta no documento pai e também no topo da cadeia de iframes
-    var docs = [];
-    try{ docs.push(window.parent.document); }catch(e){}
-    try{ docs.push(window.top.document); }catch(e){}
-    for(var i=0;i<docs.length;i++){
-        var doc = docs[i];
-        var c = doc.querySelector('[data-testid="stSidebarCollapseButton"] button');
-        var e = doc.querySelector('[data-testid="collapsedControl"]');
-        if(c){ c.click(); return; }
-        if(e){ e.click(); return; }
-    }
-}
-</script>
-""", height=60, scrolling=False)
+# BUSCAR AGENDA
+def buscar_agenda(token, data):
+    inicio = datetime(data.year, data.month, data.day, 0, 0, 0, tzinfo=TZ_SP)
+    fim    = datetime(data.year, data.month, data.day, 23, 59, 59, tzinfo=TZ_SP)
 
-# ── SIDEBAR ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("""
-        <div style="padding:10px 0 20px 0">
-            <h2 style="margin:0;font-weight:800;font-size:22px;color:#FFF;font-family:'Inter',sans-serif">GestorHub</h2>
-        </div>""", unsafe_allow_html=True)
-    st.markdown("<p style='font-size:11px;color:#9CA3AF;margin-bottom:5px;letter-spacing:.08em;text-transform:uppercase'>Navegacao</p>", unsafe_allow_html=True)
-    opcao = st.selectbox("nav", ["🏠 Inicio", "📊 Chamados", "🎥 Resumos tl;dv"], label_visibility="collapsed")
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    if st.button("Sair da Conta", use_container_width=True):
-        st.session_state.clear()
+    url = f"https://graph.microsoft.com/v1.0/me/calendarView"
+    params = {
+        "startDateTime": inicio.astimezone(TZ_UTC).isoformat(),
+        "endDateTime": fim.astimezone(TZ_UTC).isoformat()
+    }
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r = requests.get(url, headers=headers, params=params)
+
+    if r.status_code != 200:
+        return []
+
+    return r.json().get("value", [])
+
+# HEADER
+st.title("Olá, Gestor 👋")
+
+# CONTROLES
+col1, col2, col3 = st.columns([2,1,1])
+
+with col1:
+    nova_data = st.date_input(
+        "Selecionar data",
+        value=st.session_state["data"]
+    )
+
+with col2:
+    if st.button("Hoje"):
+        st.session_state["data"] = datetime.now(TZ_SP).date()
         st.rerun()
 
-# ── TELA: INÍCIO ──────────────────────────────────────────────────────────────
-if opcao == "🏠 Inicio":
+with col3:
+    if st.button("Atualizar"):
+        st.rerun()
 
-    st.markdown("""
-    <div class="dashboard-header">
-        <h1>Ola, Gestor!</h1>
-        <p>Agenda sincronizada com a Microsoft</p>
-    </div>""", unsafe_allow_html=True)
+if nova_data != st.session_state["data"]:
+    st.session_state["data"] = nova_data
+    st.rerun()
 
-    # ── lê data da URL (setada pelo calendário JS) ────────────────────────────
-    hoje_sp = datetime.now(tz=TZ_SP).date()
-    try:
-        data_sel = datetime.strptime(qp.get("data", ""), "%Y-%m-%d").date()
-    except Exception:
-        data_sel = hoje_sp
+# BUSCA EVENTOS
+eventos = buscar_agenda(st.session_state["token"], st.session_state["data"])
 
-    MESES_S = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
-    label_exib = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_S[data_sel.month-1]} {data_sel.year}"
-    hoje_iso = hoje_sp.isoformat()
-    sel_iso  = data_sel.isoformat()
+st.subheader("Sua Agenda")
 
-    # ── CALENDÁRIO + BOTÃO SYNC via components.v1.html ───────────────────────
-    components.html(f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:'Inter',sans-serif;background:transparent}}
-.bar{{display:flex;align-items:center;gap:10px;padding:4px 0 8px;position:relative}}
-.cal-btn{{
-    background:#FFF;border:1.5px solid #E5E7EB;border-radius:50px;
-    padding:8px 16px 8px 12px;display:flex;align-items:center;gap:8px;
-    cursor:pointer;font-size:14px;font-weight:600;color:#111827;
-    box-shadow:0 1px 4px rgba(0,0,0,.07);transition:border-color .15s;
-    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-}}
-.cal-btn:hover{{border-color:#111827}}
-.sync-btn{{
-    background:#F3F4F6;border:1.5px solid #E5E7EB;border-radius:50px;
-    padding:8px 14px;cursor:pointer;font-size:18px;line-height:1;
-    transition:background .15s,transform .15s;
-    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-}}
-.sync-btn:hover{{background:#E5E7EB}}
-.sync-btn:active{{transform:rotate(180deg)}}
-#popup{{
-    display:none;position:absolute;top:54px;left:0;z-index:9999;
-    background:#FFF;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);
-    border:1px solid #E5E7EB;padding:18px;width:296px;
-}}
-.ph{{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}}
-.ph span{{font-size:15px;font-weight:700;color:#111827}}
-.nav{{background:none;border:none;cursor:pointer;font-size:22px;color:#6B7280;
-    padding:2px 8px;border-radius:6px;line-height:1;touch-action:manipulation}}
-.nav:hover{{background:#F3F4F6;color:#111827}}
-.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}}
-.dow{{font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;padding:4px 0}}
-.day{{font-size:13px;font-weight:500;color:#111827;padding:7px 2px;
-    border-radius:8px;cursor:pointer;border:none;background:none;width:100%;
-    transition:background .1s;touch-action:manipulation}}
-.day:hover{{background:#F3F4F6}}
-.day.today{{border:1.5px solid #111827;font-weight:700;border-radius:50%}}
-.day.sel{{background:#111827!important;color:#FFF!important;border-radius:50%}}
-.day.out{{color:#D1D5DB;pointer-events:none}}
-</style>
-</head>
-<body>
-<div class="bar">
-    <div class="cal-btn" id="cal-toggle" onclick="toggleCal()">
-        <svg width="17" height="17" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-            <rect x="3" y="4" width="18" height="18" rx="3"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-        <span id="lbl">{label_exib}</span>
-    </div>
-    <button class="sync-btn" onclick="syncNow()" title="Sincronizar agenda">&#x21bb;</button>
-    <div id="popup">
-        <div class="ph">
-            <button class="nav" onclick="chgMonth(-1)">&#8249;</button>
-            <span id="mlbl"></span>
-            <button class="nav" onclick="chgMonth(1)">&#8250;</button>
-        </div>
-        <div class="grid">
-            <div class="dow">D</div><div class="dow">S</div><div class="dow">T</div>
-            <div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div>
-        </div>
-        <div class="grid" id="days"></div>
-    </div>
-</div>
-<script>
-var MESES=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-var MESES_S=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-var hoje=new Date("{hoje_iso}T12:00:00");
-var sel=new Date("{sel_iso}T12:00:00");
-var cur=new Date(sel.getFullYear(),sel.getMonth(),1);
-var open=false;
-
-function pad(n){{return n<10?"0"+n:n}}
-function iso(d){{return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
-
-function render(){{
-    var y=cur.getFullYear(),m=cur.getMonth();
-    document.getElementById("mlbl").textContent=MESES[m]+" "+y;
-    var g=document.getElementById("days"); g.innerHTML="";
-    var first=new Date(y,m,1).getDay();
-    var days=new Date(y,m+1,0).getDate();
-    var prev=new Date(y,m,0).getDate();
-    for(var i=0;i<first;i++){{add(g,prev-first+1+i,true,null)}}
-    for(var d=1;d<=days;d++){{
-        var dt=new Date(y,m,d);
-        var isToday=iso(dt)===iso(hoje);
-        var isSel=iso(dt)===iso(sel);
-        add(g,d,false,dt,isToday,isSel);
-    }}
-    var rem=(first+days)%7; if(rem){{for(var i=1;i<=7-rem;i++) add(g,i,true,null)}}
-}}
-
-function add(g,txt,out,dt,isToday,isSel){{
-    var b=document.createElement("button");
-    b.className="day"+(out?" out":"")+(isToday?" today":"")+(isSel?" sel":"");
-    b.textContent=txt;
-    if(dt){{(function(d){{b.onclick=function(){{pick(d)}}}})(dt)}}
-    g.appendChild(b);
-}}
-
-function pick(dt){{
-    sel=dt;
-    var s=iso(dt);
-    var label=(s===iso(hoje))?"Hoje":dt.getDate()+" "+MESES_S[dt.getMonth()]+" "+dt.getFullYear();
-    document.getElementById("lbl").textContent=label;
-    close();
-    // navega no parent para que Streamlit releia query_params
-    var url=new URL(window.parent.location.href);
-    url.searchParams.set("data",s);
-    window.parent.location.href=url.toString();
-}}
-
-function syncNow(){{
-    // reload mantendo a data selecionada
-    window.parent.location.reload();
-}}
-
-function toggleCal(){{
-    open=!open;
-    document.getElementById("popup").style.display=open?"block":"none";
-    if(open){{cur=new Date(sel.getFullYear(),sel.getMonth(),1);render()}}
-}}
-function chgMonth(d){{cur.setMonth(cur.getMonth()+d);render()}}
-function close(){{open=false;document.getElementById("popup").style.display="none"}}
-
-document.addEventListener("click",function(e){{
-    var p=document.getElementById("popup");
-    var t=document.getElementById("cal-toggle");
-    if(p&&t&&!p.contains(e.target)&&!t.contains(e.target)) close();
-}});
-render();
-</script>
-</body>
-</html>
-""", height=70, scrolling=False)
-
-    # ── agenda ────────────────────────────────────────────────────────────────
-    eventos      = buscar_agenda(st.session_state["access_token"], data_sel)
-    total        = len(eventos)
-
-    st.markdown("<h4 style='color:#111827;margin-bottom:12px;font-family:Inter,sans-serif'>Sua Agenda</h4>", unsafe_allow_html=True)
-
-    if total == 0:
-        st.markdown("""
-        <div class="nexuma-card" style="text-align:center;padding:36px">
-            <span style="font-size:28px">🎉</span>
-            <p style="color:#6B7280;font-size:15px;margin-top:10px;font-family:Inter,sans-serif">Nenhum evento neste dia.</p>
-        </div>""", unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="nexuma-card">', unsafe_allow_html=True)
-        for i, ev in enumerate(eventos):
-            hi = pd.to_datetime(ev['start']['dateTime']).strftime("%H:%M")
-            hf = pd.to_datetime(ev['end']['dateTime']).strftime("%H:%M")
-            titulo = ev.get('subject', 'Sem titulo')
-            link = (ev.get('onlineMeeting') or {}).get('joinUrl') or ev.get('onlineMeetingUrl', '')
-            btn  = f'<a href="{link}" target="_blank" class="btn-primary">Entrar</a>' if link else \
-                   '<span style="color:#9CA3AF;font-size:12px">Sem link</span>'
-            borda = "" if i == total-1 else "border-bottom:1px solid #F3F4F6;"
-            st.markdown(f"""
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;{borda}gap:12px;flex-wrap:wrap">
-                <div style="flex:1;min-width:0">
-                    <h4 style="margin:0;font-size:15px;color:#111827;font-family:Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{titulo}</h4>
-                    <p style="margin:3px 0 0;font-size:13px;color:#6B7280;font-family:Inter,sans-serif">🕒 {hi} - {hf}</p>
-                </div>
-                <div style="flex-shrink:0">{btn}</div>
-            </div>""", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Day Pulse ─────────────────────────────────────────────────────────────
-    mins = termino = 0
-    fim_str = "--:--"
+if not eventos:
+    st.info("Nenhum evento nesse dia.")
+else:
     for ev in eventos:
-        ini = pd.to_datetime(ev['start']['dateTime'])
-        fim = pd.to_datetime(ev['end']['dateTime'])
-        mins += (fim - ini).total_seconds() / 60
-    if eventos:
-        fim_str = pd.to_datetime(eventos[-1]['end']['dateTime']).strftime("%H:%M")
-    h = int(mins//60); m = int(mins%60)
-    liv = max(0, 480-mins)
+        inicio = pd.to_datetime(ev['start']['dateTime']).strftime("%H:%M")
+        fim    = pd.to_datetime(ev['end']['dateTime']).strftime("%H:%M")
+        titulo = ev.get("subject", "Sem título")
 
-    st.markdown("<h4 style='color:#111827;margin-top:24px;margin-bottom:4px;font-family:Inter,sans-serif'>Day Pulse</h4>", unsafe_allow_html=True)
-    st.markdown(f"""
-    <div class="nexuma-card">
-      <div class="pulse-grid">
-        <div class="pulse-box"><div class="p-title">EVENTOS</div><div class="p-val" style="color:#3B82F6">{total}</div></div>
-        <div class="pulse-box"><div class="p-title">OCUPADO</div><div class="p-val">{h}h {m}m</div></div>
-        <div class="pulse-box"><div class="p-title">LIVRE</div><div class="p-val" style="color:#10B981">{int(liv//60)}h {int(liv%60)}m</div></div>
-        <div class="pulse-box"><div class="p-title">TERMINO</div><div class="p-val" style="color:#EF4444">{fim_str}</div></div>
-      </div>
-    </div>""", unsafe_allow_html=True)
+        link = (
+            (ev.get('onlineMeeting') or {}).get('joinUrl')
+            or ev.get('onlineMeetingUrl')
+        )
 
-# ── TELA: CHAMADOS ────────────────────────────────────────────────────────────
-elif opcao == "📊 Chamados":
-    st.markdown("""
-    <div class="dashboard-header">
-        <h1>Chamados</h1>
-        <p>Acompanhamento de SLAs em tempo real</p>
-    </div>""", unsafe_allow_html=True)
-    link_pbi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
-    st.markdown(f"""
-    <div class="nexuma-card" style="padding:12px">
-        <div class="pbi-wrapper">
-            <iframe src="{link_pbi}" allowFullScreen="true"></iframe>
-        </div>
-    </div>""", unsafe_allow_html=True)
+        with st.container():
+            colA, colB = st.columns([4,1])
 
-# ── TELA: RESUMOS ─────────────────────────────────────────────────────────────
-elif opcao == "🎥 Resumos tl;dv":
-    st.markdown("""
-    <div class="dashboard-header">
-        <h1>Resumos de Reunioes</h1>
-        <p>Insights extraidos das reunioes (tl;dv)</p>
-    </div>""", unsafe_allow_html=True)
-    st.markdown("""
-    <div class="nexuma-card">
-        <h3 style="color:#111827;margin:0;font-family:Inter,sans-serif">Comite de Mudancas (CAB)</h3>
-        <p style="color:#6B7280;font-size:14px;margin-top:4px;font-family:Inter,sans-serif">Hoje, 10:00 &bull; Duracao: 45m</p>
-        <div style="background:#F9FAFB;padding:14px;border-radius:8px;margin-top:18px">
-            <p style="color:#111827;font-size:14px;margin:0;font-family:Inter,sans-serif"><b>📝 Resumo:</b> A equipe aprovou a atualizacao do BD do ERP para este domingo.</p>
-        </div>
-        <br>
-        <a href="#" class="btn-primary">🔗 Assistir Gravacao no tl;dv</a>
-    </div>""", unsafe_allow_html=True)
+            with colA:
+                st.markdown(f"**{titulo}**")
+                st.caption(f"{inicio} - {fim}")
+
+            with colB:
+                if link:
+                    st.link_button("Entrar", link)
+
+# DAY PULSE
+st.subheader("Day Pulse")
+
+total = len(eventos)
+mins = 0
+
+for ev in eventos:
+    ini = pd.to_datetime(ev['start']['dateTime'])
+    fim = pd.to_datetime(ev['end']['dateTime'])
+    mins += (fim - ini).total_seconds() / 60
+
+h = int(mins // 60)
+m = int(mins % 60)
+
+st.metric("Eventos", total)
+st.metric("Tempo ocupado", f"{h}h {m}m")
+
+# LOGOUT
+if st.button("Sair"):
+    st.session_state.clear()
+    st.rerun()
