@@ -90,20 +90,11 @@ ul[data-baseweb="menu"] li:hover{background:#374151!important}
 
 .pbi-wrapper{position:relative;width:100%;padding-bottom:62%;height:0;overflow:hidden;border-radius:12px}
 .pbi-wrapper iframe{position:absolute;top:0;left:0;width:100%!important;height:100%!important;border:none}
-
-/* Esconde o date_input nativo mas mantem funcional */
-div[data-testid="stDateInput"]{
-    position:absolute!important;
-    opacity:0!important;
-    pointer-events:none!important;
-    width:1px!important;height:1px!important;
-    overflow:hidden!important;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────────
-for k, v in [("logado_ms", False), ("access_token", None), ("data_agenda", None)]:
+for k, v in [("logado_ms", False), ("access_token", None), ("data_agenda", None), ("cal_open", False)]:
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -116,6 +107,21 @@ if "code" in qp and not st.session_state["logado_ms"]:
         st.session_state["logado_ms"] = True
         st.query_params.clear()
         st.rerun()
+
+# Trata navegação de data via query param (sem recarregar a sessão)
+if "set_date" in qp and st.session_state["logado_ms"]:
+    try:
+        from datetime import date as date_type
+        nova = date_type.fromisoformat(qp["set_date"])
+        st.session_state["data_agenda"] = nova
+        st.query_params.clear()
+        st.rerun()
+    except Exception:
+        st.query_params.clear()
+
+if "sync" in qp and st.session_state["logado_ms"]:
+    st.query_params.clear()
+    st.rerun()
 
 # ── TELA DE LOGIN ─────────────────────────────────────────────────────────────
 if not st.session_state["logado_ms"]:
@@ -149,7 +155,7 @@ components.html("""
 <button id="pill" onclick="go()">&#9776; <span style="font-size:13px;font-weight:700">Menu</span></button>
 <script>
 function go(){
-    var ds=[]; 
+    var ds=[];
     try{ds.push(window.parent.document)}catch(e){}
     try{if(window.top!==window.parent)ds.push(window.top.document)}catch(e){}
     for(var i=0;i<ds.length;i++){
@@ -185,7 +191,6 @@ if opcao == "🏠 Inicio":
 
     hoje_sp = datetime.now(tz=TZ_SP).date()
 
-    # Inicializa data no session_state
     if st.session_state["data_agenda"] is None:
         st.session_state["data_agenda"] = hoje_sp
 
@@ -196,72 +201,71 @@ if opcao == "🏠 Inicio":
     hoje_iso = hoje_sp.isoformat()
     sel_iso  = data_sel.isoformat()
 
-    # ── date_input OCULTO — controlado pelo JS abaixo ─────────────────────────
-    # O JS vai clicar nele programaticamente para mudar a data no session_state
-    nova_data = st.date_input(
-        "data_hidden",
-        value=data_sel,
-        key="date_picker_hidden",
-        label_visibility="collapsed"
-    )
-    # Se o date_input mudou (clicado pelo JS ou diretamente), atualiza session_state
-    if nova_data != data_sel:
-        st.session_state["data_agenda"] = nova_data
-        st.rerun()
-
-    # ── CALENDÁRIO VISUAL (components.html — acesso real ao DOM) ──────────────
+    # ── CALENDÁRIO VISUAL ─────────────────────────────────────────────────────
+    # O calendário usa window.location para enviar set_date como query param
+    # sem perder a sessão do Streamlit (não recarrega do zero, só atualiza params)
     components.html(f"""
 <!DOCTYPE html><html>
 <head><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:-apple-system,'Inter',sans-serif;background:transparent;overflow:visible}}
-.bar{{display:flex;align-items:center;gap:10px;padding:2px 0 4px;position:relative;overflow:visible}}
+
+.bar{{display:flex;align-items:center;gap:10px;padding:4px 0;position:relative}}
+
 .cal-btn{{
     background:#FFF;border:1.5px solid #E5E7EB;border-radius:50px;
     padding:8px 16px 8px 12px;display:flex;align-items:center;gap:8px;
     cursor:pointer;font-size:14px;font-weight:600;color:#111827;
     box-shadow:0 1px 4px rgba(0,0,0,.07);
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-    transition:border-color .15s;
+    transition:border-color .15s;user-select:none;
 }}
 .cal-btn:hover,.cal-btn:active{{border-color:#111827}}
+
 .sync-btn{{
     width:38px;height:38px;border-radius:50%;
     background:#F3F4F6;border:1.5px solid #E5E7EB;
     cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;
     transition:background .15s,transform .3s;
+    user-select:none;
 }}
 .sync-btn:hover{{background:#E5E7EB}}
-.sync-btn.spin{{animation:spin .5s linear}}
+.sync-btn.spin svg{{animation:spin .7s linear infinite}}
 @keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
 
+/* Popup dentro do body do iframe, posição absolute */
 #popup{{
-    display:none;position:fixed;
-    top:auto;left:16px;
-    z-index:99999;
-    background:#FFF;border-radius:16px;
-    box-shadow:0 8px 40px rgba(0,0,0,.18);
+    display:none;
+    position:absolute;
+    top:54px;
+    left:0;
+    z-index:9999;
+    background:#FFF;
+    border-radius:16px;
+    box-shadow:0 8px 40px rgba(0,0,0,.22);
     border:1px solid #E5E7EB;
-    padding:18px;width:288px;
+    padding:18px;
+    width:288px;
 }}
 .ph{{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}}
 .ph span{{font-size:15px;font-weight:700;color:#111827}}
-.nav{{background:none;border:none;cursor:pointer;font-size:24px;color:#6B7280;
-    padding:2px 8px;border-radius:6px;line-height:1;touch-action:manipulation}}
-.nav:hover{{background:#F3F4F6;color:#111827}}
+.nav-btn{{background:none;border:none;cursor:pointer;font-size:24px;color:#6B7280;
+    padding:2px 8px;border-radius:6px;line-height:1;touch-action:manipulation;user-select:none}}
+.nav-btn:hover{{background:#F3F4F6;color:#111827}}
 .grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}}
 .dow{{font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;padding:4px 0}}
 .day{{font-size:13px;font-weight:500;color:#111827;padding:8px 2px;
     border-radius:8px;cursor:pointer;border:none;background:none;width:100%;
-    touch-action:manipulation;-webkit-tap-highlight-color:transparent;}}
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}}
 .day:hover,.day:active{{background:#F3F4F6}}
 .day.today{{border:2px solid #111827;font-weight:800;border-radius:50%}}
 .day.sel{{background:#111827!important;color:#FFF!important;border-radius:50%;border:none}}
-.day.out{{color:#D1D5DB;pointer-events:none}}
+.day.out{{color:#D1D5DB;pointer-events:none;cursor:default}}
 </style></head>
 <body>
+
 <div class="bar">
     <div class="cal-btn" id="tog" onclick="toggleCal(event)">
         <svg width="17" height="17" fill="none" stroke="#111827" stroke-width="2"
@@ -273,16 +277,24 @@ body{{font-family:-apple-system,'Inter',sans-serif;background:transparent;overfl
         </svg>
         <span id="lbl">{label_exib}</span>
     </div>
-    <div class="sync-btn" id="syncbtn" onclick="doSync()">&#x21bb;</div>
+
+    <div class="sync-btn" id="syncbtn" title="Sincronizar" onclick="doSync()">
+        <svg id="syncsvg" width="18" height="18" fill="none" stroke="#374151" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+    </div>
 </div>
 
 <div id="popup">
     <div class="ph">
-        <button class="nav" onclick="chg(-1)">&#8249;</button>
+        <button class="nav-btn" onclick="chg(-1)">&#8249;</button>
         <span id="mlbl"></span>
-        <button class="nav" onclick="chg(1)">&#8250;</button>
+        <button class="nav-btn" onclick="chg(1)">&#8250;</button>
     </div>
-    <div class="grid" id="dows">
+    <div class="grid">
         <div class="dow">D</div><div class="dow">S</div><div class="dow">T</div>
         <div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div>
     </div>
@@ -297,94 +309,87 @@ var sel=new Date("{sel_iso}T12:00:00");
 var cur=new Date(sel.getFullYear(),sel.getMonth(),1);
 var isOpen=false;
 
-function pad(n){{return n<10?"0"+n:n}}
-function iso(d){{return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
-
-// Posiciona o popup abaixo do botao
-function positionPopup(){{
-    var tog=document.getElementById("tog");
-    var popup=document.getElementById("popup");
-    var rect=tog.getBoundingClientRect();
-    popup.style.top=(rect.bottom+window.scrollY+8)+"px";
-}}
+function pad(n){{return n<10?"0"+n:n;}}
+function iso(d){{return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}}
 
 function render(){{
-    var y=cur.getFullYear(),m=cur.getMonth();
+    var y=cur.getFullYear(), m=cur.getMonth();
     document.getElementById("mlbl").textContent=MESES[m]+" "+y;
     var g=document.getElementById("days"); g.innerHTML="";
     var first=new Date(y,m,1).getDay();
     var days=new Date(y,m+1,0).getDate();
     var prev=new Date(y,m,0).getDate();
-    for(var i=0;i<first;i++){{mk(g,prev-first+1+i,true,null)}}
+    for(var i=0;i<first;i++) mk(g,prev-first+1+i,true,null,false,false);
     for(var d=1;d<=days;d++){{
         var dt=new Date(y,m,d);
         mk(g,d,false,dt,iso(dt)===iso(hoje),iso(dt)===iso(sel));
     }}
-    var rem=(first+days)%7; if(rem)for(var i=1;i<=7-rem;i++) mk(g,i,true,null);
+    var rem=(first+days)%7;
+    if(rem>0) for(var i=1;i<=7-rem;i++) mk(g,i,true,null,false,false);
 }}
 
 function mk(g,txt,out,dt,isT,isS){{
     var b=document.createElement("button");
     b.className="day"+(out?" out":"")+(isT?" today":"")+(isS?" sel":"");
     b.textContent=txt;
-    if(dt)(function(d){{b.onclick=function(){{pick(d)}}}})(dt);
+    if(dt){{
+        (function(d){{
+            b.onclick=function(e){{
+                e.stopPropagation();
+                pick(d);
+            }};
+        }})(dt);
+    }}
     g.appendChild(b);
 }}
 
 function pick(dt){{
     sel=dt;
+    cur=new Date(dt.getFullYear(),dt.getMonth(),1);
     var s=iso(dt);
     var label=(s===iso(hoje))?"Hoje":dt.getDate()+" "+MESES_S[dt.getMonth()]+" "+dt.getFullYear();
     document.getElementById("lbl").textContent=label;
-    close();
-    // Comunica ao Streamlit via o date_input oculto no parent
-    setDateInStreamlit(s);
+    closePopup();
+    // Navega via query param sem perder sessão
+    navigateDate(s);
 }}
 
-function setDateInStreamlit(iso){{
-    // Encontra o input[type=date] oculto do Streamlit no documento pai
-    var docs=[];
-    try{{docs.push(window.parent.document)}}catch(e){{}}
-    try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-    
-    for(var i=0;i<docs.length;i++){{
-        var inputs=docs[i].querySelectorAll('input[type="date"],input[data-testid="stDateInput"],input.st-date-input');
-        // Tenta tambem pelo label
-        var allInputs=docs[i].querySelectorAll('input');
-        for(var j=0;j<allInputs.length;j++){{
-            var inp=allInputs[j];
-            if(inp.type==="date" || inp.getAttribute("data-testid")==="stDateInput"){{
-                // Usa React synthetic event para forcar o Streamlit a detectar a mudanca
-                var nativeInputValueSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-                nativeInputValueSetter.call(inp,iso);
-                inp.dispatchEvent(new Event('input',{{bubbles:true}}));
-                inp.dispatchEvent(new Event('change',{{bubbles:true}}));
-                return;
-            }}
+function navigateDate(isoStr){{
+    // Usa window.parent.location para definir query param set_date
+    // Isso faz o Streamlit atualizar sem exigir novo login
+    try {{
+        var parentLoc = window.parent.location;
+        var url = parentLoc.origin + parentLoc.pathname + "?set_date=" + isoStr;
+        window.parent.location.href = url;
+    }} catch(e) {{
+        // fallback: tenta window.top
+        try {{
+            var topLoc = window.top.location;
+            var url = topLoc.origin + topLoc.pathname + "?set_date=" + isoStr;
+            window.top.location.href = url;
+        }} catch(e2) {{
+            console.error("Nao foi possivel navegar:", e2);
         }}
     }}
 }}
 
 function doSync(){{
-    var btn=document.getElementById("syncbtn");
-    btn.classList.add("spin");
-    // Aciona o rerun do Streamlit clicando no botao de reload no parent
+    var svg=document.getElementById("syncsvg");
+    svg.style.animation="spin .7s linear infinite";
     setTimeout(function(){{
-        var docs=[];
-        try{{docs.push(window.parent.document)}}catch(e){{}}
-        try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-        // Dispara change no date_input para forcar rerun mantendo a data
-        for(var i=0;i<docs.length;i++){{
-            var allInputs=docs[i].querySelectorAll('input');
-            for(var j=0;j<allInputs.length;j++){{
-                if(allInputs[j].type==="date"){{
-                    allInputs[j].dispatchEvent(new Event('change',{{bubbles:true}}));
-                    break;
-                }}
-            }}
+        svg.style.animation="";
+        // Trigger sync via query param
+        try {{
+            var parentLoc = window.parent.location;
+            var url = parentLoc.origin + parentLoc.pathname + "?sync=1";
+            window.parent.location.href = url;
+        }} catch(e) {{
+            try {{
+                var topLoc = window.top.location;
+                window.top.location.href = topLoc.origin + topLoc.pathname + "?sync=1";
+            }} catch(e2){{}}
         }}
-        btn.classList.remove("spin");
-    }},500);
+    }}, 700);
 }}
 
 function toggleCal(e){{
@@ -392,25 +397,34 @@ function toggleCal(e){{
     isOpen=!isOpen;
     var popup=document.getElementById("popup");
     if(isOpen){{
-        positionPopup();
         cur=new Date(sel.getFullYear(),sel.getMonth(),1);
         render();
         popup.style.display="block";
-    }}else{{
+    }} else {{
         popup.style.display="none";
     }}
 }}
-function chg(d){{cur.setMonth(cur.getMonth()+d);render()}}
-function close(){{isOpen=false;document.getElementById("popup").style.display="none"}}
+
+function chg(d){{
+    cur.setMonth(cur.getMonth()+d);
+    render();
+}}
+
+function closePopup(){{
+    isOpen=false;
+    document.getElementById("popup").style.display="none";
+}}
 
 document.addEventListener("click",function(e){{
     var p=document.getElementById("popup");
     var t=document.getElementById("tog");
-    if(p&&t&&!p.contains(e.target)&&!t.contains(e.target))close();
+    if(p && t && p.style.display!=="none" && !p.contains(e.target) && !t.contains(e.target)){{
+        closePopup();
+    }}
 }});
 </script>
 </body></html>
-""", height=56, scrolling=False)
+""", height=370, scrolling=False)
 
     # ── agenda ────────────────────────────────────────────────────────────────
     eventos = buscar_agenda(st.session_state["access_token"], data_sel)
