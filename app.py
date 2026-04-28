@@ -3,7 +3,7 @@ import msal
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
-import pytz
+from zoneinfo import ZoneInfo
 
 # ==========================================
 # 1. CONFIGURACAO
@@ -19,22 +19,21 @@ AUTHORITY     = "https://login.microsoftonline.com/common"
 REDIRECT_URI  = "https://gestor-app.streamlit.app"
 SCOPE         = ["User.Read", "Calendars.ReadWrite"]
 
-TZ_SP = pytz.timezone("America/Sao_Paulo")
+TZ_SP  = ZoneInfo("America/Sao_Paulo")
+TZ_UTC = ZoneInfo("UTC")
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
 
-def buscar_agenda_microsoft(token, data_alvo: datetime.date):
+def buscar_agenda_microsoft(token, data_alvo):
     """
     Busca eventos do calendário apenas para a data_alvo (fuso America/Sao_Paulo).
     Retorna lista de eventos ordenados por início.
     """
-    # Monta inicio e fim da data_alvo em SP, depois converte para UTC para a query
-    inicio_sp = TZ_SP.localize(datetime(data_alvo.year, data_alvo.month, data_alvo.day, 0, 0, 0))
-    fim_sp    = TZ_SP.localize(datetime(data_alvo.year, data_alvo.month, data_alvo.day, 23, 59, 59))
-
-    inicio_utc = inicio_sp.astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S')
-    fim_utc    = fim_sp.astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S')
+    inicio_sp  = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 0,  0,  0,  tzinfo=TZ_SP)
+    fim_sp     = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 23, 59, 59, tzinfo=TZ_SP)
+    inicio_utc = inicio_sp.astimezone(TZ_UTC).strftime('%Y-%m-%dT%H:%M:%S')
+    fim_utc    = fim_sp.astimezone(TZ_UTC).strftime('%Y-%m-%dT%H:%M:%S')
 
     url = (
         f"https://graph.microsoft.com/v1.0/me/calendarView"
@@ -48,12 +47,11 @@ def buscar_agenda_microsoft(token, data_alvo: datetime.date):
     resposta = requests.get(url, headers=headers)
     if resposta.status_code == 200:
         eventos = resposta.json().get('value', [])
-        # Filtra apenas eventos cujo início cai na data_alvo em SP (garante precisão)
         resultado = []
         for ev in eventos:
             dt_inicio = pd.to_datetime(ev['start']['dateTime'])
             if dt_inicio.tzinfo is None:
-                dt_inicio = TZ_SP.localize(dt_inicio)
+                dt_inicio = dt_inicio.replace(tzinfo=TZ_SP)
             else:
                 dt_inicio = dt_inicio.astimezone(TZ_SP)
             if dt_inicio.date() == data_alvo:
@@ -309,7 +307,7 @@ if opcao == "🏠 Inicio":
     """, unsafe_allow_html=True)
 
     # Seletor de data + botao atualizar
-    hoje_sp = datetime.now(TZ_SP).date()
+    hoje_sp = datetime.now(tz=TZ_SP).date()
     col_data, col_btn = st.columns([3, 1])
     with col_data:
         data_selecionada = st.date_input(
