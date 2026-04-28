@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import msal
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 
 st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="collapsed")
@@ -42,17 +42,15 @@ def buscar_agenda(token, data_alvo):
             resultado.append(ev)
     return resultado
 
-# ── CSS GLOBAL ────────────────────────────────────────────────────────────────
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-
 .stApp,[data-testid="stAppViewContainer"]{background:#F9FAFB!important}
 header[data-testid="stHeader"]{background:transparent!important;height:0!important}
 .stAppDeployButton{display:none!important}
 #MainMenu{visibility:hidden}
 footer{visibility:hidden}
-
 [data-testid="stSidebarCollapseButton"]{display:none!important}
 button[data-testid="collapsedControl"]{display:none!important}
 
@@ -76,14 +74,14 @@ ul[data-baseweb="menu"] li:hover{background:#374151!important}
 .dashboard-header p{font-size:14px;color:#6B7280;margin:4px 0 0}
 
 .nexuma-card{background:#FFF;border-radius:16px;padding:20px;
-    box-shadow:0 2px 12px rgba(0,0,0,.04);border:1px solid #E5E7EB;margin-bottom:18px;font-family:'Inter',sans-serif}
-
+    box-shadow:0 2px 12px rgba(0,0,0,.04);border:1px solid #E5E7EB;margin-bottom:18px}
 .btn-primary{background:#111827;color:#FFF!important;padding:9px 16px;border-radius:8px;
     text-decoration:none;font-weight:600;font-size:13px;display:inline-block;
-    text-align:center;border:none;cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif}
+    border:none;cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif}
 .btn-primary:hover{background:#374151}
 
-.pulse-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px;margin-top:12px}
+.pulse-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));
+    gap:12px;margin-top:12px}
 .pulse-box{background:#F9FAFB;border-radius:12px;padding:16px 8px;text-align:center;border:1px solid #E5E7EB}
 .p-title{font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;letter-spacing:.6px}
 .p-val{font-size:19px;font-weight:800;margin-top:6px;color:#111827}
@@ -91,19 +89,13 @@ ul[data-baseweb="menu"] li:hover{background:#374151!important}
 .pbi-wrapper{position:relative;width:100%;padding-bottom:62%;height:0;overflow:hidden;border-radius:12px}
 .pbi-wrapper iframe{position:absolute;top:0;left:0;width:100%!important;height:100%!important;border:none}
 
-/* Esconde o date_input nativo mas mantem funcional */
-div[data-testid="stDateInput"]{
-    position:absolute!important;
-    opacity:0!important;
-    pointer-events:none!important;
-    width:1px!important;height:1px!important;
-    overflow:hidden!important;
-}
+/* Esconde o date_input nativo — só usamos ele para comunicar ao Streamlit */
+div[data-testid="stDateInput"]{display:none!important}
 </style>
 """, unsafe_allow_html=True)
 
 # ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────────
-for k, v in [("logado_ms", False), ("access_token", None), ("data_agenda", None)]:
+for k, v in [("logado_ms", False), ("access_token", None), ("data_sel", None), ("sync_flag", 0)]:
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -113,11 +105,10 @@ if "code" in qp and not st.session_state["logado_ms"]:
     res = app.acquire_token_by_authorization_code(qp["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI)
     if "access_token" in res:
         st.session_state["access_token"] = res["access_token"]
-        st.session_state["logado_ms"] = True
+        st.session_state["logado_ms"]    = True
         st.query_params.clear()
         st.rerun()
 
-# ── TELA DE LOGIN ─────────────────────────────────────────────────────────────
 if not st.session_state["logado_ms"]:
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 2, 1])
@@ -131,42 +122,49 @@ if not st.session_state["logado_ms"]:
         st.link_button("Entrar com Microsoft 365", auth_url, type="primary", use_container_width=True)
     st.stop()
 
-# ── BOTÃO MENU ────────────────────────────────────────────────────────────────
+# ── BOTÃO MENU via components (acesso real ao DOM pai) ────────────────────────
 components.html("""
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+body{background:transparent}
 #pill{
     position:fixed;top:14px;left:14px;z-index:999999;
     background:#111827;color:#FFF;border:none;border-radius:999px;
     padding:9px 18px 9px 14px;font-size:16px;line-height:1.2;
     cursor:pointer;display:flex;align-items:center;gap:7px;
-    box-shadow:0 4px 20px rgba(0,0,0,.4);font-family:'Inter',sans-serif;
-    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-    transition:transform .12s,background .15s;
+    box-shadow:0 4px 20px rgba(0,0,0,.35);font-family:'Inter',sans-serif;
+    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;
+    transition:background .2s,transform .12s;
 }
 #pill:active{transform:scale(.93);background:#374151}
+.pi{font-size:17px;line-height:1}
+.pl{font-size:13px;font-weight:700;letter-spacing:.03em}
 </style>
-<button id="pill" onclick="go()">&#9776; <span style="font-size:13px;font-weight:700">Menu</span></button>
+<button id="pill" onclick="go()">
+    <span class="pi">&#9776;</span>
+    <span class="pl">Menu</span>
+</button>
 <script>
 function go(){
-    var ds=[]; 
-    try{ds.push(window.parent.document)}catch(e){}
-    try{if(window.top!==window.parent)ds.push(window.top.document)}catch(e){}
-    for(var i=0;i<ds.length;i++){
-        var c=ds[i].querySelector('[data-testid="stSidebarCollapseButton"] button');
-        var e=ds[i].querySelector('[data-testid="collapsedControl"]');
+    var docs=[];
+    try{docs.push(window.parent.document)}catch(e){}
+    try{if(window.top!==window.parent)docs.push(window.top.document)}catch(e){}
+    for(var i=0;i<docs.length;i++){
+        var c=docs[i].querySelector('[data-testid="stSidebarCollapseButton"] button');
+        var e=docs[i].querySelector('[data-testid="collapsedControl"]');
         if(c){c.click();return}
         if(e){e.click();return}
     }
 }
 </script>
-""", height=58, scrolling=False)
+""", height=56, scrolling=False)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("""<div style="padding:10px 0 20px 0">
-        <h2 style="margin:0;font-weight:800;font-size:22px;color:#FFF;font-family:'Inter',sans-serif">GestorHub</h2>
-    </div>""", unsafe_allow_html=True)
+    st.markdown("""
+        <div style="padding:10px 0 20px 0">
+            <h2 style="margin:0;font-weight:800;font-size:22px;color:#FFF;font-family:'Inter',sans-serif">GestorHub</h2>
+        </div>""", unsafe_allow_html=True)
     st.markdown("<p style='font-size:11px;color:#9CA3AF;margin-bottom:5px;letter-spacing:.08em;text-transform:uppercase'>Navegacao</p>", unsafe_allow_html=True)
     opcao = st.selectbox("nav", ["🏠 Inicio", "📊 Chamados", "🎥 Resumos tl;dv"], label_visibility="collapsed")
     st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -185,236 +183,184 @@ if opcao == "🏠 Inicio":
 
     hoje_sp = datetime.now(tz=TZ_SP).date()
 
-    # Inicializa data no session_state
-    if st.session_state["data_agenda"] is None:
-        st.session_state["data_agenda"] = hoje_sp
-
-    data_sel = st.session_state["data_agenda"]
+    # data_sel guardada no session_state (sem bagunçar URL/sessão)
+    if st.session_state["data_sel"] is None:
+        st.session_state["data_sel"] = hoje_sp
+    data_sel = st.session_state["data_sel"]
 
     MESES_S = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
     label_exib = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_S[data_sel.month-1]} {data_sel.year}"
     hoje_iso = hoje_sp.isoformat()
     sel_iso  = data_sel.isoformat()
 
-    # ── date_input OCULTO — controlado pelo JS abaixo ─────────────────────────
-    # O JS vai clicar nele programaticamente para mudar a data no session_state
+    # ── date_input oculto: o Streamlit precisa de um widget para receber o valor
+    # O componente JS envia a data via postMessage e escutamos aqui via um truque:
+    # usamos st.date_input escondido por CSS e o sincronizamos com session_state
     nova_data = st.date_input(
-        "data_hidden",
+        "_cal",
         value=data_sel,
-        key="date_picker_hidden",
+        min_value=hoje_sp - timedelta(days=90),
+        max_value=hoje_sp + timedelta(days=30),
         label_visibility="collapsed"
     )
-    # Se o date_input mudou (clicado pelo JS ou diretamente), atualiza session_state
     if nova_data != data_sel:
-        st.session_state["data_agenda"] = nova_data
+        st.session_state["data_sel"] = nova_data
         st.rerun()
 
-    # ── CALENDÁRIO VISUAL (components.html — acesso real ao DOM) ──────────────
+    # ── Calendário + botão sync via components.v1.html ────────────────────────
     components.html(f"""
 <!DOCTYPE html><html>
 <head><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:-apple-system,'Inter',sans-serif;background:transparent;overflow:visible}}
-.bar{{display:flex;align-items:center;gap:10px;padding:2px 0 4px;position:relative;overflow:visible}}
+body{{font-family:'Inter',sans-serif;background:transparent;overflow:hidden}}
+.bar{{display:flex;align-items:center;gap:10px;padding:4px 2px 6px;position:relative}}
 .cal-btn{{
     background:#FFF;border:1.5px solid #E5E7EB;border-radius:50px;
-    padding:8px 16px 8px 12px;display:flex;align-items:center;gap:8px;
+    padding:8px 16px 8px 12px;display:inline-flex;align-items:center;gap:8px;
     cursor:pointer;font-size:14px;font-weight:600;color:#111827;
     box-shadow:0 1px 4px rgba(0,0,0,.07);
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-    transition:border-color .15s;
+    user-select:none;
 }}
-.cal-btn:hover,.cal-btn:active{{border-color:#111827}}
+.cal-btn:active{{background:#F3F4F6}}
 .sync-btn{{
-    width:38px;height:38px;border-radius:50%;
-    background:#F3F4F6;border:1.5px solid #E5E7EB;
-    cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;
+    background:#FFF;border:1.5px solid #E5E7EB;border-radius:50px;
+    width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:18px;
+    box-shadow:0 1px 4px rgba(0,0,0,.07);
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-    transition:background .15s,transform .3s;
+    transition:transform .4s;
 }}
-.sync-btn:hover{{background:#E5E7EB}}
-.sync-btn.spin{{animation:spin .5s linear}}
-@keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
-
+.sync-btn:active{{transform:rotate(180deg)}}
 #popup{{
-    display:none;position:fixed;
-    top:auto;left:16px;
-    z-index:99999;
-    background:#FFF;border-radius:16px;
-    box-shadow:0 8px 40px rgba(0,0,0,.18);
-    border:1px solid #E5E7EB;
-    padding:18px;width:288px;
+    display:none;position:absolute;top:52px;left:0;z-index:9999;
+    background:#FFF;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.18);
+    border:1px solid #E5E7EB;padding:18px;width:292px;
 }}
 .ph{{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}}
-.ph span{{font-size:15px;font-weight:700;color:#111827}}
-.nav{{background:none;border:none;cursor:pointer;font-size:24px;color:#6B7280;
-    padding:2px 8px;border-radius:6px;line-height:1;touch-action:manipulation}}
-.nav:hover{{background:#F3F4F6;color:#111827}}
-.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}}
-.dow{{font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;padding:4px 0}}
-.day{{font-size:13px;font-weight:500;color:#111827;padding:8px 2px;
+.ph b{{font-size:15px;font-weight:700;color:#111827}}
+.nav{{background:none;border:none;cursor:pointer;font-size:22px;color:#6B7280;
+    padding:2px 10px;border-radius:8px;line-height:1;touch-action:manipulation}}
+.nav:hover,.nav:active{{background:#F3F4F6;color:#111827}}
+.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}}
+.dow{{font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;padding:5px 0}}
+.day{{font-size:13px;font-weight:500;color:#111827;padding:7px 2px;
     border-radius:8px;cursor:pointer;border:none;background:none;width:100%;
-    touch-action:manipulation;-webkit-tap-highlight-color:transparent;}}
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent}}
 .day:hover,.day:active{{background:#F3F4F6}}
-.day.today{{border:2px solid #111827;font-weight:800;border-radius:50%}}
-.day.sel{{background:#111827!important;color:#FFF!important;border-radius:50%;border:none}}
+.day.today{{border:1.5px solid #111827;font-weight:700;border-radius:50%}}
+.day.sel{{background:#111827!important;color:#FFF!important;border-radius:50%!important;border:none!important}}
 .day.out{{color:#D1D5DB;pointer-events:none}}
 </style></head>
 <body>
 <div class="bar">
-    <div class="cal-btn" id="tog" onclick="toggleCal(event)">
-        <svg width="17" height="17" fill="none" stroke="#111827" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-            <rect x="3" y="4" width="18" height="18" rx="3"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-        <span id="lbl">{label_exib}</span>
-    </div>
-    <div class="sync-btn" id="syncbtn" onclick="doSync()">&#x21bb;</div>
-</div>
-
-<div id="popup">
+  <div class="cal-btn" id="toggle" onclick="toggleCal()">
+    <svg width="17" height="17" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="18" rx="3"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    <span id="lbl">{label_exib}</span>
+  </div>
+  <div class="sync-btn" onclick="syncAgenda()" title="Sincronizar">&#x21bb;</div>
+  <div id="popup">
     <div class="ph">
-        <button class="nav" onclick="chg(-1)">&#8249;</button>
-        <span id="mlbl"></span>
-        <button class="nav" onclick="chg(1)">&#8250;</button>
+      <button class="nav" onclick="chg(-1)">&#8249;</button>
+      <b id="mlbl"></b>
+      <button class="nav" onclick="chg(1)">&#8250;</button>
     </div>
-    <div class="grid" id="dows">
-        <div class="dow">D</div><div class="dow">S</div><div class="dow">T</div>
-        <div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div>
+    <div class="grid">
+      <div class="dow">D</div><div class="dow">S</div><div class="dow">T</div>
+      <div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div>
     </div>
     <div class="grid" id="days"></div>
+  </div>
 </div>
-
 <script>
-var MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-var MESES_S=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+var M=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+var MS=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 var hoje=new Date("{hoje_iso}T12:00:00");
 var sel=new Date("{sel_iso}T12:00:00");
 var cur=new Date(sel.getFullYear(),sel.getMonth(),1);
-var isOpen=false;
+var open=false;
 
-function pad(n){{return n<10?"0"+n:n}}
-function iso(d){{return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
-
-// Posiciona o popup abaixo do botao
-function positionPopup(){{
-    var tog=document.getElementById("tog");
-    var popup=document.getElementById("popup");
-    var rect=tog.getBoundingClientRect();
-    popup.style.top=(rect.bottom+window.scrollY+8)+"px";
-}}
+function p(n){{return n<10?"0"+n:n}}
+function iso(d){{return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())}}
 
 function render(){{
-    var y=cur.getFullYear(),m=cur.getMonth();
-    document.getElementById("mlbl").textContent=MESES[m]+" "+y;
-    var g=document.getElementById("days"); g.innerHTML="";
-    var first=new Date(y,m,1).getDay();
-    var days=new Date(y,m+1,0).getDate();
-    var prev=new Date(y,m,0).getDate();
-    for(var i=0;i<first;i++){{mk(g,prev-first+1+i,true,null)}}
-    for(var d=1;d<=days;d++){{
-        var dt=new Date(y,m,d);
-        mk(g,d,false,dt,iso(dt)===iso(hoje),iso(dt)===iso(sel));
-    }}
-    var rem=(first+days)%7; if(rem)for(var i=1;i<=7-rem;i++) mk(g,i,true,null);
+  var y=cur.getFullYear(),m=cur.getMonth();
+  document.getElementById("mlbl").textContent=M[m]+" "+y;
+  var g=document.getElementById("days"); g.innerHTML="";
+  var f=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate(), prev=new Date(y,m,0).getDate();
+  for(var i=0;i<f;i++) mkDay(g,prev-f+1+i,true,null);
+  for(var d=1;d<=days;d++) mkDay(g,d,false,new Date(y,m,d));
+  var rem=(f+days)%7; if(rem) for(var i=1;i<=7-rem;i++) mkDay(g,i,true,null);
 }}
 
-function mk(g,txt,out,dt,isT,isS){{
-    var b=document.createElement("button");
-    b.className="day"+(out?" out":"")+(isT?" today":"")+(isS?" sel":"");
-    b.textContent=txt;
-    if(dt)(function(d){{b.onclick=function(){{pick(d)}}}})(dt);
-    g.appendChild(b);
+function mkDay(g,txt,out,dt){{
+  var b=document.createElement("button");
+  b.className="day"+(out?" out":"");
+  if(dt&&iso(dt)===iso(hoje)) b.classList.add("today");
+  if(dt&&iso(dt)===iso(sel))  b.classList.add("sel");
+  b.textContent=txt;
+  if(dt)(function(d){{b.onclick=function(){{pick(d)}}}})(dt);
+  g.appendChild(b);
 }}
 
 function pick(dt){{
-    sel=dt;
-    var s=iso(dt);
-    var label=(s===iso(hoje))?"Hoje":dt.getDate()+" "+MESES_S[dt.getMonth()]+" "+dt.getFullYear();
-    document.getElementById("lbl").textContent=label;
-    close();
-    // Comunica ao Streamlit via o date_input oculto no parent
-    setDateInStreamlit(s);
+  sel=dt;
+  var s=iso(dt);
+  document.getElementById("lbl").textContent=(s===iso(hoje))?"Hoje":dt.getDate()+" "+MS[dt.getMonth()]+" "+dt.getFullYear();
+  closePop();
+  // Comunica ao Streamlit via setInputValue no date_input oculto
+  sendDate(s);
 }}
 
-function setDateInStreamlit(iso){{
-    // Encontra o input[type=date] oculto do Streamlit no documento pai
-    var docs=[];
-    try{{docs.push(window.parent.document)}}catch(e){{}}
-    try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-    
-    for(var i=0;i<docs.length;i++){{
-        var inputs=docs[i].querySelectorAll('input[type="date"],input[data-testid="stDateInput"],input.st-date-input');
-        // Tenta tambem pelo label
-        var allInputs=docs[i].querySelectorAll('input');
-        for(var j=0;j<allInputs.length;j++){{
-            var inp=allInputs[j];
-            if(inp.type==="date" || inp.getAttribute("data-testid")==="stDateInput"){{
-                // Usa React synthetic event para forcar o Streamlit a detectar a mudanca
-                var nativeInputValueSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-                nativeInputValueSetter.call(inp,iso);
-                inp.dispatchEvent(new Event('input',{{bubbles:true}}));
-                inp.dispatchEvent(new Event('change',{{bubbles:true}}));
-                return;
-            }}
-        }}
+function sendDate(isoStr){{
+  // Encontra o input[type=date] oculto do Streamlit e dispara change
+  var docs=[];
+  try{{docs.push(window.parent.document)}}catch(e){{}}
+  try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
+  for(var i=0;i<docs.length;i++){{
+    var inp=docs[i].querySelector('input[type="date"]');
+    if(inp){{
+      var nativeInputValueSetter=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
+      nativeInputValueSetter.call(inp,isoStr);
+      inp.dispatchEvent(new Event('input',{{bubbles:true}}));
+      inp.dispatchEvent(new Event('change',{{bubbles:true}}));
+      return;
     }}
+  }}
 }}
 
-function doSync(){{
-    var btn=document.getElementById("syncbtn");
-    btn.classList.add("spin");
-    // Aciona o rerun do Streamlit clicando no botao de reload no parent
-    setTimeout(function(){{
-        var docs=[];
-        try{{docs.push(window.parent.document)}}catch(e){{}}
-        try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-        // Dispara change no date_input para forcar rerun mantendo a data
-        for(var i=0;i<docs.length;i++){{
-            var allInputs=docs[i].querySelectorAll('input');
-            for(var j=0;j<allInputs.length;j++){{
-                if(allInputs[j].type==="date"){{
-                    allInputs[j].dispatchEvent(new Event('change',{{bubbles:true}}));
-                    break;
-                }}
-            }}
-        }}
-        btn.classList.remove("spin");
-    }},500);
+function syncAgenda(){{
+  // Só reenvia a data atual para forçar rerun sem alterar sessão
+  sendDate("{sel_iso}");
 }}
 
-function toggleCal(e){{
-    e.stopPropagation();
-    isOpen=!isOpen;
-    var popup=document.getElementById("popup");
-    if(isOpen){{
-        positionPopup();
-        cur=new Date(sel.getFullYear(),sel.getMonth(),1);
-        render();
-        popup.style.display="block";
-    }}else{{
-        popup.style.display="none";
-    }}
+function toggleCal(){{
+  open=!open;
+  document.getElementById("popup").style.display=open?"block":"none";
+  if(open){{cur=new Date(sel.getFullYear(),sel.getMonth(),1);render()}}
 }}
 function chg(d){{cur.setMonth(cur.getMonth()+d);render()}}
-function close(){{isOpen=false;document.getElementById("popup").style.display="none"}}
+function closePop(){{open=false;document.getElementById("popup").style.display="none"}}
 
 document.addEventListener("click",function(e){{
-    var p=document.getElementById("popup");
-    var t=document.getElementById("tog");
-    if(p&&t&&!p.contains(e.target)&&!t.contains(e.target))close();
+  var p=document.getElementById("popup"),t=document.getElementById("toggle");
+  if(p&&t&&!p.contains(e.target)&&!t.contains(e.target)) closePop();
 }});
+render();
 </script>
 </body></html>
-""", height=56, scrolling=False)
+""", height=68, scrolling=False)
 
     # ── agenda ────────────────────────────────────────────────────────────────
-    eventos = buscar_agenda(st.session_state["access_token"], data_sel)
-    total   = len(eventos)
+    data_sel = st.session_state["data_sel"]  # pode ter sido atualizada acima
+    eventos  = buscar_agenda(st.session_state["access_token"], data_sel)
+    total    = len(eventos)
 
     st.markdown("<h4 style='color:#111827;margin-bottom:12px;font-family:Inter,sans-serif'>Sua Agenda</h4>", unsafe_allow_html=True)
 
@@ -448,13 +394,11 @@ document.addEventListener("click",function(e){{
     mins = 0
     fim_str = "--:--"
     for ev in eventos:
-        ini = pd.to_datetime(ev['start']['dateTime'])
-        fim = pd.to_datetime(ev['end']['dateTime'])
-        mins += (fim - ini).total_seconds() / 60
+        mins += (pd.to_datetime(ev['end']['dateTime']) - pd.to_datetime(ev['start']['dateTime'])).total_seconds() / 60
     if eventos:
         fim_str = pd.to_datetime(eventos[-1]['end']['dateTime']).strftime("%H:%M")
     h = int(mins//60); m = int(mins%60)
-    liv = max(0, 480-mins)
+    liv = max(0, 480 - mins)
 
     st.markdown("<h4 style='color:#111827;margin-top:24px;margin-bottom:4px;font-family:Inter,sans-serif'>Day Pulse</h4>", unsafe_allow_html=True)
     st.markdown(f"""
