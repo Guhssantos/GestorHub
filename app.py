@@ -306,31 +306,199 @@ if opcao == "🏠 Inicio":
     </div>
     """, unsafe_allow_html=True)
 
-    # Seletor de data + botao atualizar
+    # ---- Data via calendario flutuante ----
     hoje_sp = datetime.now(tz=TZ_SP).date()
-    col_data, col_btn = st.columns([3, 1])
-    with col_data:
-        data_selecionada = st.date_input(
-            "Data",
-            value=hoje_sp,
-            max_value=hoje_sp + timedelta(days=30),
-            min_value=hoje_sp - timedelta(days=90),
-            label_visibility="collapsed",
-            format="DD/MM/YYYY"
-        )
-    with col_btn:
-        if st.button("🔄 Atualizar", use_container_width=True):
-            st.rerun()
 
-    # Indicador se e hoje ou outra data
-    if data_selecionada == hoje_sp:
-        label_data = "📅 Hoje"
+    qp = st.query_params
+    if "data" in qp:
+        try:
+            data_selecionada = datetime.strptime(qp["data"], "%Y-%m-%d").date()
+        except Exception:
+            data_selecionada = hoje_sp
     else:
-        label_data = f"📅 {data_selecionada.strftime('%d/%m/%Y')}"
-    st.markdown(
-        f"<p style='color:#6B7280; font-size:13px; margin:-8px 0 16px 2px; font-family:Inter,sans-serif;'>{label_data}</p>",
-        unsafe_allow_html=True
-    )
+        data_selecionada = hoje_sp
+
+    if data_selecionada == hoje_sp:
+        label_exibicao = "Hoje"
+    else:
+        MESES_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+        label_exibicao = f"{data_selecionada.day} {MESES_PT[data_selecionada.month-1]} {data_selecionada.year}"
+
+    hoje_iso = hoje_sp.isoformat()
+    sel_iso  = data_selecionada.isoformat()
+
+    st.markdown(f"""
+    <style>
+    .cal-bar {{
+        display: flex; align-items: center; gap: 10px;
+        margin-bottom: 20px; position: relative;
+    }}
+    .cal-icon-btn {{
+        background: #FFFFFF; border: 1.5px solid #E5E7EB;
+        border-radius: 50px; padding: 8px 16px 8px 12px;
+        display: flex; align-items: center; gap: 8px;
+        cursor: pointer; font-family: "Inter", sans-serif;
+        font-size: 14px; font-weight: 600; color: #111827;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        transition: border-color .15s, box-shadow .15s;
+        user-select: none; -webkit-tap-highlight-color: transparent;
+    }}
+    .cal-icon-btn:hover {{ border-color: #111827; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }}
+    .cal-icon-btn svg {{ flex-shrink: 0; }}
+    .refresh-btn {{
+        background: #F3F4F6; border: 1.5px solid #E5E7EB;
+        border-radius: 50px; padding: 8px 14px;
+        cursor: pointer; font-size: 16px; line-height: 1;
+        transition: background .15s; -webkit-tap-highlight-color: transparent;
+    }}
+    .refresh-btn:hover {{ background: #E5E7EB; }}
+    #cal-popup {{
+        display: none; position: absolute;
+        top: 52px; left: 0; z-index: 99998;
+        background: #FFFFFF; border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        border: 1px solid #E5E7EB;
+        padding: 20px; width: 300px;
+        font-family: "Inter", sans-serif;
+    }}
+    .cal-popup-header {{
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 16px;
+    }}
+    .cal-popup-header span {{ font-size: 15px; font-weight: 700; color: #111827; }}
+    .cal-nav {{
+        background: none; border: none; cursor: pointer; font-size: 20px;
+        color: #6B7280; padding: 2px 8px; border-radius: 6px; line-height:1;
+    }}
+    .cal-nav:hover {{ background: #F3F4F6; color: #111827; }}
+    .cal-grid {{
+        display: grid; grid-template-columns: repeat(7, 1fr);
+        gap: 3px; text-align: center;
+    }}
+    .cal-dow {{
+        font-size: 10px; font-weight: 700; color: #9CA3AF;
+        text-transform: uppercase; padding: 4px 0;
+    }}
+    .cal-day {{
+        font-size: 13px; font-weight: 500; color: #111827;
+        padding: 7px 2px; border-radius: 8px; cursor: pointer;
+        border: none; background: none; width: 100%;
+        transition: background .1s;
+    }}
+    .cal-day:hover {{ background: #F3F4F6; }}
+    .cal-day.today {{ border: 1.5px solid #111827; font-weight: 700; border-radius: 50%; }}
+    .cal-day.selected {{ background: #111827 !important; color: #FFFFFF !important; border-radius: 50%; }}
+    .cal-day.other-month {{ color: #D1D5DB; pointer-events: none; }}
+    </style>
+
+    <div class="cal-bar">
+        <div class="cal-icon-btn" id="cal-toggle" onclick="toggleCal()">
+            <svg width="18" height="18" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="3"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span id="cal-label">{label_exibicao}</span>
+        </div>
+        <button class="refresh-btn" onclick="reloadPage()">🔄</button>
+        <div id="cal-popup">
+            <div class="cal-popup-header">
+                <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
+                <span id="cal-month-label"></span>
+                <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+            </div>
+            <div class="cal-grid">
+                <div class="cal-dow">D</div><div class="cal-dow">S</div>
+                <div class="cal-dow">T</div><div class="cal-dow">Q</div>
+                <div class="cal-dow">Q</div><div class="cal-dow">S</div>
+                <div class="cal-dow">S</div>
+            </div>
+            <div class="cal-grid" id="cal-days"></div>
+        </div>
+    </div>
+
+    <script>
+    (function(){{
+        var MESES = ["Janeiro","Fevereiro","Marco","Abril","Maio","Junho",
+                     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+        var MESES_S = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+        var hoje = new Date("{hoje_iso}T12:00:00");
+        var sel  = new Date("{sel_iso}T12:00:00");
+        var cur  = new Date(sel.getFullYear(), sel.getMonth(), 1);
+        var open = false;
+
+        function pad(n){{ return n<10?"0"+n:n; }}
+        function isoDate(d){{ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }}
+
+        function renderCalendar(){{
+            var y=cur.getFullYear(), m=cur.getMonth();
+            document.getElementById("cal-month-label").textContent = MESES[m]+" "+y;
+            var grid=document.getElementById("cal-days");
+            grid.innerHTML="";
+            var first=new Date(y,m,1).getDay();
+            var days=new Date(y,m+1,0).getDate();
+            var prevDays=new Date(y,m,0).getDate();
+            for(var i=0;i<first;i++){{
+                var btn=document.createElement("button");
+                btn.className="cal-day other-month";
+                btn.textContent=prevDays-first+1+i;
+                grid.appendChild(btn);
+            }}
+            for(var d=1;d<=days;d++){{
+                var btn=document.createElement("button");
+                btn.className="cal-day";
+                btn.textContent=d;
+                var dt=new Date(y,m,d);
+                if(isoDate(dt)===isoDate(hoje)) btn.classList.add("today");
+                if(isoDate(dt)===isoDate(sel))  btn.classList.add("selected");
+                (function(dt){{ btn.onclick=function(){{ selectDate(dt); }}; }})(dt);
+                grid.appendChild(btn);
+            }}
+            var total=first+days, rem=total%7===0?0:7-(total%7);
+            for(var i=1;i<=rem;i++){{
+                var btn=document.createElement("button");
+                btn.className="cal-day other-month"; btn.textContent=i;
+                grid.appendChild(btn);
+            }}
+        }}
+
+        function selectDate(dt){{
+            sel=dt;
+            var iso=isoDate(dt);
+            var label=(iso===isoDate(hoje))?"Hoje":
+                dt.getDate()+" "+MESES_S[dt.getMonth()]+" "+dt.getFullYear();
+            document.getElementById("cal-label").textContent=label;
+            closeCal();
+            var url=new URL(window.parent.location.href);
+            url.searchParams.set("data",iso);
+            window.parent.location.href=url.toString();
+        }}
+
+        window.toggleCal=function(){{
+            open=!open;
+            document.getElementById("cal-popup").style.display=open?"block":"none";
+            if(open){{ cur=new Date(sel.getFullYear(),sel.getMonth(),1); renderCalendar(); }}
+        }};
+        window.changeMonth=function(delta){{
+            cur.setMonth(cur.getMonth()+delta); renderCalendar();
+        }};
+        window.reloadPage=function(){{
+            window.parent.location.reload();
+        }};
+        function closeCal(){{
+            open=false;
+            document.getElementById("cal-popup").style.display="none";
+        }}
+        document.addEventListener("click",function(e){{
+            var p=document.getElementById("cal-popup");
+            var t=document.getElementById("cal-toggle");
+            if(p&&t&&!p.contains(e.target)&&!t.contains(e.target)) closeCal();
+        }});
+        renderCalendar();
+    }})();
+    </script>
+    """, unsafe_allow_html=True)
 
     # Busca eventos para a data selecionada
     eventos = buscar_agenda_microsoft(st.session_state["access_token"], data_selecionada)
