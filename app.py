@@ -242,207 +242,152 @@ if opcao == "🏠 Inicio":
         st.rerun()
 
     # ── CALENDÁRIO VISUAL ─────────────────────────────────────────────────────
-    components.html(f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-* {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }}
-body {{ background: transparent; padding: 4px 0 8px; overflow: visible; }}
+    # Renderizado via st.markdown no DOM principal (sem iframe),
+    # assim o popup não fica cortado e o sync não navega para fora.
+    st.markdown(f"""
+<div id="cal-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:20px;position:relative;">
 
-.bar {{ display: flex; align-items: center; gap: 10px; position: relative; }}
+  <div id="cal-toggle" onclick="ghToggleCal()" style="
+      background:#FFF;border:1.5px solid #E5E7EB;border-radius:50px;
+      padding:8px 16px 8px 12px;display:flex;align-items:center;gap:8px;
+      cursor:pointer;font-size:14px;font-weight:600;color:#111827;
+      box-shadow:0 1px 6px rgba(0,0,0,.08);user-select:none;
+      -webkit-tap-highlight-color:transparent;touch-action:manipulation;">
+    <svg width="16" height="16" fill="none" stroke="#111827" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="18" rx="3"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8"  y1="2" x2="8"  y2="6"/>
+      <line x1="3"  y1="10" x2="21" y2="10"/>
+    </svg>
+    <span id="gh-lbl">{label_exib}</span>
+  </div>
 
-.cal-btn {{
-    background: #FFF; border: 1.5px solid #E5E7EB; border-radius: 50px;
-    padding: 8px 16px 8px 12px; display: flex; align-items: center; gap: 8px;
-    cursor: pointer; font-size: 14px; font-weight: 600; color: #111827;
-    box-shadow: 0 1px 6px rgba(0,0,0,.08);
-    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-    transition: border-color .15s; user-select: none;
-}}
-.cal-btn:hover {{ border-color: #111827; }}
-.cal-btn:active {{ background: #F3F4F6; }}
+  <button onclick="ghSync()" title="Sincronizar" style="
+      width:36px;height:36px;border-radius:50%;background:#F3F4F6;
+      border:1.5px solid #E5E7EB;cursor:pointer;font-size:17px;
+      display:flex;align-items:center;justify-content:center;
+      -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+      transition:background .15s;" id="gh-sync">&#x21bb;</button>
 
-.sync-btn {{
-    width: 38px; height: 38px; border-radius: 50%;
-    background: #F3F4F6; border: 1.5px solid #E5E7EB;
-    cursor: pointer; font-size: 18px;
-    display: flex; align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-    transition: background .15s;
-}}
-.sync-btn:hover {{ background: #E5E7EB; }}
-.sync-btn.spin {{ animation: spin .5s linear; }}
-@keyframes spin {{ from {{ transform: rotate(0deg); }} to {{ transform: rotate(360deg); }} }}
-
-#popup {{
-    display: none; position: absolute; top: 46px; left: 0; z-index: 9999;
-    background: #FFF; border-radius: 16px;
-    box-shadow: 0 8px 40px rgba(0,0,0,.18); border: 1px solid #E5E7EB;
-    padding: 18px 16px; width: 280px;
-    /* Garante que o popup fica acima de tudo dentro do iframe */
-}}
-.bar {{ overflow: visible !important; }}
-.ph {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
-.ph-title {{ font-size: 15px; font-weight: 700; color: #111827; }}
-.nav {{
-    background: none; border: none; cursor: pointer; font-size: 22px;
-    color: #6B7280; padding: 2px 10px; border-radius: 8px; line-height: 1;
-    touch-action: manipulation;
-}}
-.nav:hover {{ background: #F3F4F6; color: #111827; }}
-.grid {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }}
-.dow {{ font-size: 10px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; padding: 6px 0 4px; }}
-.day {{
-    font-size: 13px; font-weight: 500; color: #111827; padding: 7px 2px;
-    border-radius: 8px; cursor: pointer; border: none; background: none; width: 100%;
-    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-    transition: background .1s;
-}}
-.day:hover {{ background: #F3F4F6; }}
-.day.today {{ border: 2px solid #111827; font-weight: 700; border-radius: 50%; }}
-.day.sel   {{ background: #111827 !important; color: #FFF !important; border-radius: 50% !important; border: none !important; }}
-.day.out   {{ color: #D1D5DB; pointer-events: none; }}
-</style>
-</head>
-<body>
-<div class="bar">
-    <div class="cal-btn" id="cal-toggle" onclick="toggleCal()">
-        <svg width="16" height="16" fill="none" stroke="#111827" stroke-width="2.2"
-             stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-            <rect x="3" y="4" width="18" height="18" rx="3"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8"  y1="2" x2="8"  y2="6"/>
-            <line x1="3"  y1="10" x2="21" y2="10"/>
-        </svg>
-        <span id="lbl">{label_exib}</span>
+  <div id="gh-popup" style="
+      display:none;position:absolute;top:48px;left:0;z-index:99999;
+      background:#FFF;border-radius:16px;width:280px;padding:18px 16px;
+      box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid #E5E7EB;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <button onclick="ghChgMonth(-1)" style="background:none;border:none;cursor:pointer;font-size:22px;color:#6B7280;padding:2px 10px;border-radius:8px;line-height:1;">&#8249;</button>
+      <span id="gh-mlbl" style="font-size:15px;font-weight:700;color:#111827;font-family:Inter,sans-serif;"></span>
+      <button onclick="ghChgMonth(1)"  style="background:none;border:none;cursor:pointer;font-size:22px;color:#6B7280;padding:2px 10px;border-radius:8px;line-height:1;">&#8250;</button>
     </div>
-
-    <button class="sync-btn" id="sbtn" onclick="doSync()" title="Sincronizar">&#x21bb;</button>
-
-    <div id="popup">
-        <div class="ph">
-            <button class="nav" onclick="chgMonth(-1)">&#8249;</button>
-            <span class="ph-title" id="mlbl"></span>
-            <button class="nav" onclick="chgMonth(1)">&#8250;</button>
-        </div>
-        <div class="grid">
-            <div class="dow">D</div><div class="dow">S</div><div class="dow">T</div>
-            <div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div>
-        </div>
-        <div class="grid" id="days"></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;" id="gh-dows">
+      <div style="font-size:10px;font-weight:700;color:#9CA3AF;padding:4px 0;">D</div>
+      <div style="font-size:10px;font-weight:700;color:#9CA3AF;padding:4px 0;">S</div>
+      <div style="font-size:10px;font-weight:700;color:#9CA3AF;padding:4px 0;">T</div>
+      <div style="font-size:10px;font-weight:700;color:#9CA3AF;padding:4px 0;">Q</div>
+      <div style="font-size:10px;font-weight:700;color:#9CA3AF;padding:4px 0;">Q</div>
+      <div style="font-size:10px;font-weight:700;color:#9CA3AF;padding:4px 0;">S</div>
+      <div style="font-size:10px;font-weight:700;color:#9CA3AF;padding:4px 0;">S</div>
     </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;" id="gh-days"></div>
+  </div>
 </div>
 
 <script>
-var MESES   = ["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-var MESES_S = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-var hoje    = new Date("{hoje_iso}T12:00:00");
-var sel     = new Date("{sel_iso}T12:00:00");
-var cur     = new Date(sel.getFullYear(), sel.getMonth(), 1);
-var open    = false;
+(function(){{
+  var MESES   = ["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  var MESES_S = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  var hoje    = new Date("{hoje_iso}T12:00:00");
+  var sel     = new Date("{sel_iso}T12:00:00");
+  var cur     = new Date(sel.getFullYear(), sel.getMonth(), 1);
+  var open    = false;
 
-function pad(n) {{ return n < 10 ? "0" + n : n; }}
-function iso(d) {{ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }}
+  function pad(n){{ return n<10?"0"+n:n; }}
+  function iso(d){{ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }}
 
-function render() {{
-    var y = cur.getFullYear(), m = cur.getMonth();
-    document.getElementById("mlbl").textContent = MESES[m] + " " + y;
-    var g = document.getElementById("days");
-    g.innerHTML = "";
-    var first = new Date(y, m, 1).getDay();
-    var days  = new Date(y, m+1, 0).getDate();
-    var prev  = new Date(y, m, 0).getDate();
-    for (var i = 0; i < first; i++) addDay(g, prev - first + 1 + i, true, null);
-    for (var d = 1; d <= days; d++) {{
-        var dt = new Date(y, m, d);
-        addDay(g, d, false, dt, iso(dt) === iso(hoje), iso(dt) === iso(sel));
+  function render(){{
+    var y=cur.getFullYear(), m=cur.getMonth();
+    document.getElementById("gh-mlbl").textContent = MESES[m]+" "+y;
+    var g=document.getElementById("gh-days");
+    g.innerHTML="";
+    var first=new Date(y,m,1).getDay();
+    var days =new Date(y,m+1,0).getDate();
+    var prev =new Date(y,m,0).getDate();
+    for(var i=0;i<first;i++) addDay(g,prev-first+1+i,true,null);
+    for(var d=1;d<=days;d++){{
+      var dt=new Date(y,m,d);
+      addDay(g,d,false,dt,iso(dt)===iso(hoje),iso(dt)===iso(sel));
     }}
-    var rem = (first + days) % 7;
-    if (rem) for (var i = 1; i <= 7 - rem; i++) addDay(g, i, true, null);
-}}
+    var rem=(first+days)%7;
+    if(rem) for(var i=1;i<=7-rem;i++) addDay(g,i,true,null);
+  }}
 
-function addDay(g, txt, out, dt, isT, isS) {{
-    var b = document.createElement("button");
-    b.className = "day" + (out?" out":"") + (isT?" today":"") + (isS?" sel":"");
-    b.textContent = txt;
-    if (dt) {{ (function(d) {{ b.onclick = function() {{ pick(d); }}; }})(dt); }}
+  function addDay(g,txt,out,dt,isT,isS){{
+    var b=document.createElement("div");
+    var base="font-size:13px;font-weight:500;padding:7px 2px;border-radius:8px;text-align:center;cursor:pointer;";
+    if(out)   b.style.cssText=base+"color:#D1D5DB;pointer-events:none;";
+    else if(isS) b.style.cssText=base+"background:#111827;color:#FFF;border-radius:50%;font-weight:700;";
+    else if(isT) b.style.cssText=base+"border:2px solid #111827;border-radius:50%;font-weight:700;color:#111827;";
+    else         b.style.cssText=base+"color:#111827;";
+    b.textContent=txt;
+    if(dt){{
+      (function(d){{
+        b.onmouseenter=function(){{if(!isS&&!isT)b.style.background="#F3F4F6";}};
+        b.onmouseleave=function(){{if(!isS&&!isT)b.style.background="";}};
+        b.onclick=function(){{pick(d);}};
+      }})(dt);
+    }}
     g.appendChild(b);
-}}
+  }}
 
-function pick(dt) {{
-    sel = dt;
-    var s = iso(dt);
-    var label = (s === iso(hoje)) ? "Hoje" : dt.getDate() + " " + MESES_S[dt.getMonth()] + " " + dt.getFullYear();
-    document.getElementById("lbl").textContent = label;
-    closeCal();
-    setStreamlitDate(s);
-}}
-
-function setStreamlitDate(isoStr) {{
-    var parts = isoStr.split("-");
-    var formatted = parts[2] + "/" + parts[1] + "/" + parts[0]; // DD/MM/YYYY
-    var docs = [];
-    try {{ docs.push(window.parent.document); }} catch(e) {{}}
-    try {{ if (window.top !== window.parent) docs.push(window.top.document); }} catch(e) {{}}
-    for (var i = 0; i < docs.length; i++) {{
-        var inputs = docs[i].querySelectorAll('[data-testid="stDateInput"] input');
-        for (var j = 0; j < inputs.length; j++) {{
-            var inp = inputs[j];
-            var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
-            setter.set.call(inp, formatted);
-            inp.dispatchEvent(new Event("input",  {{ bubbles: true }}));
-            inp.dispatchEvent(new Event("change", {{ bubbles: true }}));
-            return;
-        }}
+  function pick(dt){{
+    sel=dt;
+    var s=iso(dt);
+    var label=(s===iso(hoje))?"Hoje":dt.getDate()+" "+MESES_S[dt.getMonth()]+" "+dt.getFullYear();
+    document.getElementById("gh-lbl").textContent=label;
+    ghCloseCal();
+    // Atualiza o date_input oculto do Streamlit
+    var inp=document.querySelector('[data-testid="stDateInput"] input');
+    if(inp){{
+      var parts=s.split("-");
+      var fmt=parts[2]+"/"+parts[1]+"/"+parts[0];
+      var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
+      setter.set.call(inp,fmt);
+      inp.dispatchEvent(new Event("input",{{bubbles:true}}));
+      inp.dispatchEvent(new Event("change",{{bubbles:true}}));
     }}
-}}
+  }}
 
-function doSync() {{
-    var btn = document.getElementById("sbtn");
-    btn.classList.add("spin");
-    setTimeout(function() {{ btn.classList.remove("spin"); }}, 600);
-    // Adiciona ?sync=1 na URL SEM remover a sessão — o Streamlit faz rerun
-    // mantendo o session_state (token de login não é perdido)
-    var docs = [];
-    try {{ docs.push(window.parent.document); }} catch(e) {{}}
-    for (var i = 0; i < docs.length; i++) {{
-        var inputs = docs[i].querySelectorAll('[data-testid="stDateInput"] input');
-        if (inputs.length > 0) {{
-            // Força rerun re-disparando o valor atual (sem mudar data)
-            var inp = inputs[0];
-            var cur = inp.value;
-            var nv = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
-            nv.set.call(inp, cur + " "); // adiciona espaco
-            inp.dispatchEvent(new Event("input",  {{ bubbles: true }}));
-            nv.set.call(inp, cur);       // restaura
-            inp.dispatchEvent(new Event("input",  {{ bubbles: true }}));
-            inp.dispatchEvent(new Event("change", {{ bubbles: true }}));
-            return;
-        }}
+  window.ghToggleCal=function(){{
+    open=!open;
+    document.getElementById("gh-popup").style.display=open?"block":"none";
+    if(open){{cur=new Date(sel.getFullYear(),sel.getMonth(),1);render();}}
+  }};
+  window.ghChgMonth=function(d){{cur.setMonth(cur.getMonth()+d);render();}};
+  window.ghCloseCal=function(){{open=false;document.getElementById("gh-popup").style.display="none";}};
+  window.ghSync=function(){{
+    var btn=document.getElementById("gh-sync");
+    btn.style.transform="rotate(360deg)";
+    btn.style.transition="transform 0.5s";
+    setTimeout(function(){{btn.style.transform="";btn.style.transition="";}},500);
+    // Força rerun do Streamlit re-disparando o date input sem mudar valor
+    var inp=document.querySelector('[data-testid="stDateInput"] input');
+    if(inp){{
+      inp.dispatchEvent(new Event("input",{{bubbles:true}}));
+      inp.dispatchEvent(new Event("change",{{bubbles:true}}));
     }}
-}}
+  }};
 
-function toggleCal() {{
-    open = !open;
-    document.getElementById("popup").style.display = open ? "block" : "none";
-    if (open) {{ cur = new Date(sel.getFullYear(), sel.getMonth(), 1); render(); }}
-}}
-function chgMonth(d) {{ cur.setMonth(cur.getMonth() + d); render(); }}
-function closeCal() {{ open = false; document.getElementById("popup").style.display = "none"; }}
+  // Fecha ao clicar fora
+  document.addEventListener("click",function(e){{
+    var p=document.getElementById("gh-popup");
+    var t=document.getElementById("cal-toggle");
+    if(p&&t&&open&&!p.contains(e.target)&&!t.contains(e.target)) ghCloseCal();
+  }});
 
-document.addEventListener("click", function(e) {{
-    var p = document.getElementById("popup");
-    var t = document.getElementById("cal-toggle");
-    if (p && t && !p.contains(e.target) && !t.contains(e.target)) closeCal();
-}});
-
-render();
+  render();
+}})();
 </script>
-</body>
-</html>
-""", height=380, scrolling=False)
+""", unsafe_allow_html=True)
 
     # ── AGENDA ────────────────────────────────────────────────────────────────
     eventos = buscar_agenda(st.session_state["access_token"], data_sel)
