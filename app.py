@@ -115,6 +115,11 @@ ul[data-baseweb="menu"] li:hover { background: #374151 !important; }
 .pbi-wrapper iframe { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; border: none; }
 
 div[data-testid="stDateInput"] { position: absolute !important; opacity: 0 !important; pointer-events: none !important; height: 0 !important; overflow: hidden !important; }
+
+/* Permite que o iframe do componente extravase para mostrar o popup do calendario */
+iframe[title="streamlit_components.html"] { overflow: visible !important; }
+[data-testid="stCustomComponentV1"] { overflow: visible !important; }
+.element-container:has(iframe) { overflow: visible !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -244,7 +249,7 @@ if opcao == "🏠 Inicio":
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }}
-body {{ background: transparent; padding: 4px 0 8px; }}
+body {{ background: transparent; padding: 4px 0 8px; overflow: visible; }}
 
 .bar {{ display: flex; align-items: center; gap: 10px; position: relative; }}
 
@@ -272,11 +277,13 @@ body {{ background: transparent; padding: 4px 0 8px; }}
 @keyframes spin {{ from {{ transform: rotate(0deg); }} to {{ transform: rotate(360deg); }} }}
 
 #popup {{
-    display: none; position: absolute; top: 50px; left: 0; z-index: 9999;
+    display: none; position: absolute; top: 46px; left: 0; z-index: 9999;
     background: #FFF; border-radius: 16px;
     box-shadow: 0 8px 40px rgba(0,0,0,.18); border: 1px solid #E5E7EB;
     padding: 18px 16px; width: 280px;
+    /* Garante que o popup fica acima de tudo dentro do iframe */
 }}
+.bar {{ overflow: visible !important; }}
 .ph {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
 .ph-title {{ font-size: 15px; font-weight: 700; color: #111827; }}
 .nav {{
@@ -396,11 +403,25 @@ function doSync() {{
     var btn = document.getElementById("sbtn");
     btn.classList.add("spin");
     setTimeout(function() {{ btn.classList.remove("spin"); }}, 600);
-    // Recarrega sem params de OAuth para nao forcar login
-    var url = new URL(window.parent.location.href);
-    url.searchParams.delete("code");
-    url.searchParams.delete("state");
-    window.parent.location.href = url.toString();
+    // Adiciona ?sync=1 na URL SEM remover a sessão — o Streamlit faz rerun
+    // mantendo o session_state (token de login não é perdido)
+    var docs = [];
+    try {{ docs.push(window.parent.document); }} catch(e) {{}}
+    for (var i = 0; i < docs.length; i++) {{
+        var inputs = docs[i].querySelectorAll('[data-testid="stDateInput"] input');
+        if (inputs.length > 0) {{
+            // Força rerun re-disparando o valor atual (sem mudar data)
+            var inp = inputs[0];
+            var cur = inp.value;
+            var nv = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
+            nv.set.call(inp, cur + " "); // adiciona espaco
+            inp.dispatchEvent(new Event("input",  {{ bubbles: true }}));
+            nv.set.call(inp, cur);       // restaura
+            inp.dispatchEvent(new Event("input",  {{ bubbles: true }}));
+            inp.dispatchEvent(new Event("change", {{ bubbles: true }}));
+            return;
+        }}
+    }}
 }}
 
 function toggleCal() {{
@@ -421,7 +442,7 @@ render();
 </script>
 </body>
 </html>
-""", height=65, scrolling=False)
+""", height=380, scrolling=False)
 
     # ── AGENDA ────────────────────────────────────────────────────────────────
     eventos = buscar_agenda(st.session_state["access_token"], data_sel)
