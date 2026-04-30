@@ -5,9 +5,12 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
+import base64
+import os
 
 st.set_page_config(page_title="GestorHub", page_icon="🚀", layout="wide", initial_sidebar_state="collapsed")
 
+# ── CONFIGURAÇÕES E CREDENCIAIS ───────────────────────────────────────────────
 CLIENT_ID     = "261febe1-b827-452e-8bc5-e5ae52a6340c"
 CLIENT_SECRET = "~pQ8Q~ckiPJbeP~FOA0yTOySNzGCxbVTIfVmLcV_"
 AUTHORITY     = "https://login.microsoftonline.com/common"
@@ -16,15 +19,29 @@ SCOPE         = ["User.Read", "Calendars.ReadWrite"]
 TZ_SP         = ZoneInfo("America/Sao_Paulo")
 TZ_UTC        = ZoneInfo("UTC")
 
+# ── FUNÇÃO PARA CARREGAR IMAGEM LOCAL E CONVERTER PARA BASE64 ─────────────────
+def get_image_base64(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode("utf-8")
+    return ""
+
+# Tenta carregar o logo local chamado "logo.png"
+base64_logo = get_image_base64("logo.png")
+if base64_logo:
+    img_tag_logo = f'<img src="data:image/png;base64,{base64_logo}" class="logo-azzas">'
+else:
+    # Se ele não achar o arquivo, apenas não exibe nada e não quebra o código
+    img_tag_logo = ''
+
+# ── FUNÇÕES DE DADOS E HTML ───────────────────────────────────────────────────
 def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
 
 def buscar_agenda(token, data_alvo):
-    # Definir os limites do dia baseados em SP
     inicio_sp = datetime(data_alvo.year, data_alvo.month, data_alvo.day,  0,  0,  0, tzinfo=TZ_SP)
     fim_sp    = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 23, 59, 59, tzinfo=TZ_SP)
     
-    # Converter estritamente para formato UTC exigido pela Graph API
     ini_utc = inicio_sp.astimezone(TZ_UTC).strftime("%Y-%m-%dT%H:%M:%S")
     fim_utc = fim_sp.astimezone(TZ_UTC).strftime("%Y-%m-%dT%H:%M:%S")
     
@@ -40,7 +57,6 @@ def buscar_agenda(token, data_alvo):
     try:
         r = requests.get(url, headers=headers, params=params)
         
-        # Identificar se o token expirou (Erro 401)
         if r.status_code == 401:
             return "EXPIRADO"
             
@@ -63,7 +79,7 @@ def buscar_agenda(token, data_alvo):
         return []
 
 def make_calendar_html(label_exib, hoje_iso, sel_iso):
-    """Gera o HTML do calendário sem f-string para evitar conflitos com JS"""
+    """Gera o HTML do calendário"""
     return """<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -148,7 +164,6 @@ html,body{background:transparent;padding:4px 0 6px}
           fr[i].height=h;
           fr[i].style.height=h+"px";
           fr[i].style.minHeight=h+"px";
-          
           var container = fr[i].closest('div[data-testid="element-container"]');
           if(container) {
               container.style.position = "relative";
@@ -266,7 +281,6 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
 
-/* SOLUÇÃO PARA O FUNDO PRETO GERAL */
 html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainBlockContainer"] {
     background-color: #F9FAFB !important;
 }
@@ -278,7 +292,24 @@ footer{visibility:hidden}
 [data-testid="stSidebarCollapseButton"]{display:none!important}
 button[data-testid="collapsedControl"]{display:none!important}
 
-/* SOLUÇÃO PARA A SIDEBAR (Garante que o fundo escuro ocupe de ponta a ponta) */
+/* SOLUÇÃO PARA O LOGO NO CANTO SUPERIOR DIREITO */
+.logo-azzas {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 140px;
+    z-index: 999998;
+    pointer-events: none;
+}
+@media (max-width: 768px) {
+    .logo-azzas {
+        top: 15px;
+        right: 15px;
+        width: 110px;
+    }
+}
+
+/* SIDEBAR ESCURA */
 [data-testid="stSidebar"],
 [data-testid="stSidebar"] > div:first-child {
     background-color: #111827 !important;
@@ -298,7 +329,7 @@ ul[data-baseweb="menu"] li:hover{background:#374151!important}
 [data-testid="stSidebar"] button{background:#7F1D1D!important;color:#FEE2E2!important;border:1px solid #991B1B!important;font-weight:600!important;border-radius:8px!important}
 [data-testid="stSidebar"] button:hover{background:#991B1B!important}
 
-.dashboard-header{margin-top:10px;margin-bottom:20px;font-family:'Inter',sans-serif}
+.dashboard-header{margin-top:40px;margin-bottom:20px;font-family:'Inter',sans-serif}
 .dashboard-header h1{font-size:26px;font-weight:800;color:#111827;margin:0}
 .dashboard-header p{font-size:14px;color:#6B7280;margin:4px 0 0}
 .nexuma-card{background:#FFF;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.04);border:1px solid #E5E7EB;margin-bottom:18px;font-family:'Inter',sans-serif;position:relative;z-index:1;}
@@ -315,6 +346,9 @@ div[data-testid="stHtml"] {overflow: visible !important;}
 iframe {position: relative;z-index: 99999 !important;}
 </style>
 """, unsafe_allow_html=True)
+
+# Imprime o HTML do logo criado lá em cima (se a imagem existir)
+st.markdown(img_tag_logo, unsafe_allow_html=True)
 
 # ── SESSION STATE ─────────────────────────────────────────────────────────────
 for k, v in [("logado_ms", False), ("access_token", None), ("data_agenda", None)]:
@@ -434,7 +468,6 @@ if opcao == "🏠 Inicio":
             <p style="color:#6B7280;font-size:15px;margin-top:10px;font-family:Inter,sans-serif;">Nenhum evento neste dia.</p>
         </div>""", unsafe_allow_html=True)
     else:
-        # SOLUÇÃO PARA A BARRA BRANCA: Concatenar tudo em uma única string HTML
         html_agenda = '<div class="nexuma-card">'
         
         for i, ev in enumerate(eventos):
@@ -462,8 +495,6 @@ if opcao == "🏠 Inicio":
             </div>"""
             
         html_agenda += '</div>'
-        
-        # Imprime o HTML inteiro de uma única vez, sem criar quebras vazias
         st.markdown(html_agenda, unsafe_allow_html=True)
 
     # ── DAY PULSE ─────────────────────────────────────────────────────────────
