@@ -292,20 +292,22 @@ footer{visibility:hidden}
 [data-testid="stSidebarCollapseButton"]{display:none!important}
 button[data-testid="collapsedControl"]{display:none!important}
 
-/* SOLUÇÃO PARA O LOGO NO CANTO SUPERIOR DIREITO */
+/* ========================================= */
+/* SOLUÇÃO PARA O LOGO PROPORCIONAL E ALINHADO */
+/* ========================================= */
 .logo-azzas {
     position: fixed;
-    top: 20px;
+    top: 18px; /* Alinhado horizontalmente com o Menu */
     right: 20px;
-    width: 140px;
+    width: 170px; /* Maior no Desktop */
     z-index: 999998;
     pointer-events: none;
 }
 @media (max-width: 768px) {
     .logo-azzas {
-        top: 15px;
-        right: 15px;
-        width: 110px;
+        top: 18px; /* Desce um pouco para afastar da borda da tela no celular */
+        right: 14px; /* Alinha o recuo direito com o recuo esquerdo do botão Menu */
+        width: 145px; /* Aumentado para ficar visível e proporcional */
     }
 }
 
@@ -329,9 +331,17 @@ ul[data-baseweb="menu"] li:hover{background:#374151!important}
 [data-testid="stSidebar"] button{background:#7F1D1D!important;color:#FEE2E2!important;border:1px solid #991B1B!important;font-weight:600!important;border-radius:8px!important}
 [data-testid="stSidebar"] button:hover{background:#991B1B!important}
 
-.dashboard-header{margin-top:40px;margin-bottom:20px;font-family:'Inter',sans-serif}
+/* ========================================= */
+/* MARGEM DO CABEÇALHO AUMENTADA PARA NÃO BATER NO LOGO */
+/* ========================================= */
+.dashboard-header{
+    margin-top: 75px; /* Empurra o "Olá, Gestor" lá para baixo, longe do logo */
+    margin-bottom: 20px;
+    font-family:'Inter',sans-serif;
+}
 .dashboard-header h1{font-size:26px;font-weight:800;color:#111827;margin:0}
 .dashboard-header p{font-size:14px;color:#6B7280;margin:4px 0 0}
+
 .nexuma-card{background:#FFF;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.04);border:1px solid #E5E7EB;margin-bottom:18px;font-family:'Inter',sans-serif;position:relative;z-index:1;}
 .btn-primary{background:#111827;color:#FFF!important;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;display:inline-block;text-align:center;border:none;cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif}
 .btn-primary:hover{background:#374151}
