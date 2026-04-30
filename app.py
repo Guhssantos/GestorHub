@@ -20,23 +20,49 @@ def get_msal_app():
     return msal.ConfidentialClientApplication(CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET)
 
 def buscar_agenda(token, data_alvo):
+    # Definir os limites do dia baseados em SP
     inicio_sp = datetime(data_alvo.year, data_alvo.month, data_alvo.day,  0,  0,  0, tzinfo=TZ_SP)
     fim_sp    = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 23, 59, 59, tzinfo=TZ_SP)
-    ini_utc   = inicio_sp.astimezone(TZ_UTC).strftime("%Y-%m-%dT%H:%M:%S")
-    fim_utc   = fim_sp.astimezone(TZ_UTC).strftime("%Y-%m-%dT%H:%M:%S")
-    url = ("https://graph.microsoft.com/v1.0/me/calendarView"
-           f"?startDateTime={ini_utc}Z&endDateTime={fim_utc}Z&$orderby=start/dateTime&$top=50")
-    headers = {"Authorization": f"Bearer {token}", "Prefer": 'outlook.timezone="America/Sao_Paulo"'}
-    r = requests.get(url, headers=headers)
-    if r.status_code != 200:
+    
+    # Converter estritamente para formato UTC exigido pela Graph API
+    ini_utc = inicio_sp.astimezone(TZ_UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    fim_utc = fim_sp.astimezone(TZ_UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    
+    url = "https://graph.microsoft.com/v1.0/me/calendarView"
+    params = {
+        "startDateTime": f"{ini_utc}Z",
+        "endDateTime": f"{fim_utc}Z",
+        "$orderby": "start/dateTime",
+        "$top": 50
+    }
+    headers = {"Authorization": f"Bearer {token}"} # Removido o 'Prefer' para receber tudo em UTC puro
+    
+    try:
+        r = requests.get(url, headers=headers, params=params)
+        
+        # Identificar se o token expirou (Erro 401)
+        if r.status_code == 401:
+            return "EXPIRADO"
+            
+        if r.status_code != 200:
+            st.error(f"Erro ao buscar eventos da Microsoft (Código {r.status_code}): {r.text}")
+            return []
+            
+        resultado = []
+        for ev in r.json().get("value", []):
+            # Força a conversão do horário UTC recebido da Microsoft para São Paulo
+            dt_utc = pd.to_datetime(ev["start"]["dateTime"])
+            if dt_utc.tzinfo is None:
+                dt_utc = dt_utc.tz_localize('UTC')
+            dt_sp = dt_utc.tz_convert(TZ_SP)
+            
+            # Garante que só retorna eventos do dia selecionado
+            if dt_sp.date() == data_alvo:
+                resultado.append(ev)
+        return resultado
+    except Exception as e:
+        st.error(f"Erro interno de conexão: {str(e)}")
         return []
-    resultado = []
-    for ev in r.json().get("value", []):
-        dt = pd.to_datetime(ev["start"]["dateTime"])
-        dt = dt.replace(tzinfo=TZ_SP) if dt.tzinfo is None else dt.astimezone(TZ_SP)
-        if dt.date() == data_alvo:
-            resultado.append(ev)
-    return resultado
 
 def make_calendar_html(label_exib, hoje_iso, sel_iso):
     """Gera o HTML do calendário sem f-string para evitar conflitos com JS"""
@@ -62,7 +88,7 @@ html,body{background:transparent;padding:4px 0 6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinning{animation:spin .5s linear}
 #popup{
-    display:none;position:absolute;top:48px;left:0;z-index:999999; /* Aumentado z-index */
+    display:none;position:absolute;top:48px;left:0;z-index:999999;
     background:#FFF;border-radius:16px;width:280px;padding:18px 16px;
     box-shadow:0 8px 40px rgba(0,0,0,.2);border:1px solid #E5E7EB}
 .ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
@@ -116,7 +142,6 @@ html,body{background:transparent;padding:4px 0 6px}
   function pad(n){return n<10?"0"+n:n}
   function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 
-  // Modificado para forçar o elemento do Streamlit a ficar por cima
   function resize(h, isOpen){
     try{
       var fr=window.parent.document.querySelectorAll("iframe");
@@ -126,13 +151,11 @@ html,body{background:transparent;padding:4px 0 6px}
           fr[i].style.height=h+"px";
           fr[i].style.minHeight=h+"px";
           
-          // Encontra o container raiz do iframe no Streamlit e eleva o z-index
           var container = fr[i].closest('div[data-testid="element-container"]');
           if(container) {
               container.style.position = "relative";
               container.style.zIndex = isOpen ? "99999" : "1";
           }
-
           var p=fr[i].parentElement;
           while(p&&p.tagName!=="BODY"){p.style.overflow="visible";p=p.parentElement;}
           break;
@@ -180,7 +203,7 @@ html,body{background:transparent;padding:4px 0 6px}
 
   function send(s){
     var p=s.split("-");
-    var fmt=p[2]+"/"+p[1]+"/"+p[0];
+    var fmt=p[0]+"/"+p[1]+"/"+p[2]; // Formato seguro e universal
     var docs=[];
     try{docs.push(window.parent.document)}catch(e){}
     try{if(window.top!==window.parent)docs.push(window.top.document)}catch(e){}
@@ -278,15 +301,8 @@ ul[data-baseweb="menu"] li:hover{background:#374151!important}
 .pbi-wrapper{position:relative;width:100%;padding-bottom:62%;height:0;overflow:hidden;border-radius:12px}
 .pbi-wrapper iframe{position:absolute;top:0;left:0;width:100%!important;height:100%!important;border:none}
 div[data-testid="stDateInput"]{position:absolute!important;opacity:0!important;pointer-events:none!important;height:0!important;overflow:hidden!important}
-
-/* Força os elementos HTML embedded (onde fica o calendário) a poderem flutuar por cima do resto */
-div[data-testid="stHtml"] {
-    overflow: visible !important;
-}
-iframe {
-    position: relative;
-    z-index: 99999 !important;
-}
+div[data-testid="stHtml"] {overflow: visible !important;}
+iframe {position: relative;z-index: 99999 !important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -383,18 +399,22 @@ if opcao == "🏠 Inicio":
     hoje_iso   = hoje_sp.isoformat()
     sel_iso    = data_sel.isoformat()
 
-    # date_input oculto — acionado pelo JS
     data_input = st.date_input("data_oculta", value=data_sel, key="date_picker_hidden", label_visibility="collapsed")
     if data_input != data_sel:
         st.session_state["data_agenda"] = data_input
         st.rerun()
 
-    # Calendário (HTML sem f-string para evitar conflito com JS)
     components.html(make_calendar_html(label_exib, hoje_iso, sel_iso), height=52, scrolling=False)
 
     # ── AGENDA ────────────────────────────────────────────────────────────────
     eventos = buscar_agenda(st.session_state["access_token"], data_sel)
-    total   = len(eventos)
+    
+    # Se a função retornar "EXPIRADO" por erro 401, forçamos o encerramento da sessão
+    if eventos == "EXPIRADO":
+        st.session_state.clear()
+        st.rerun()
+        
+    total = len(eventos)
 
     st.markdown("<h4 style='color:#111827;margin-bottom:12px;font-family:Inter,sans-serif;'>Sua Agenda</h4>", unsafe_allow_html=True)
 
@@ -407,13 +427,21 @@ if opcao == "🏠 Inicio":
     else:
         st.markdown('<div class="nexuma-card">', unsafe_allow_html=True)
         for i, ev in enumerate(eventos):
-            hi    = pd.to_datetime(ev["start"]["dateTime"]).strftime("%H:%M")
-            hf    = pd.to_datetime(ev["end"]["dateTime"]).strftime("%H:%M")
+            # Converte as strings UTC da Microsoft para DateTime, e então para Fuso SP
+            dt_inicio = pd.to_datetime(ev["start"]["dateTime"])
+            if dt_inicio.tzinfo is None: dt_inicio = dt_inicio.tz_localize('UTC')
+            hi = dt_inicio.tz_convert(TZ_SP).strftime("%H:%M")
+            
+            dt_fim = pd.to_datetime(ev["end"]["dateTime"])
+            if dt_fim.tzinfo is None: dt_fim = dt_fim.tz_localize('UTC')
+            hf = dt_fim.tz_convert(TZ_SP).strftime("%H:%M")
+
             titulo = ev.get("subject", "Sem titulo")
             link  = (ev.get("onlineMeeting") or {}).get("joinUrl") or ev.get("onlineMeetingUrl", "")
             btn   = f'<a href="{link}" target="_blank" class="btn-primary">Entrar</a>' if link else \
                     '<span style="color:#9CA3AF;font-size:12px;">Sem link</span>'
             borda = "" if i == total-1 else "border-bottom:1px solid #F3F4F6;"
+            
             st.markdown(f"""
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;{borda}gap:12px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:0;">
@@ -427,9 +455,18 @@ if opcao == "🏠 Inicio":
     # ── DAY PULSE ─────────────────────────────────────────────────────────────
     mins, fim_str = 0, "--:--"
     for ev in eventos:
-        mins += (pd.to_datetime(ev["end"]["dateTime"]) - pd.to_datetime(ev["start"]["dateTime"])).total_seconds() / 60
+        dt_inicio = pd.to_datetime(ev["start"]["dateTime"])
+        if dt_inicio.tzinfo is None: dt_inicio = dt_inicio.tz_localize('UTC')
+        dt_fim = pd.to_datetime(ev["end"]["dateTime"])
+        if dt_fim.tzinfo is None: dt_fim = dt_fim.tz_localize('UTC')
+        
+        mins += (dt_fim - dt_inicio).total_seconds() / 60
+        
     if eventos:
-        fim_str = pd.to_datetime(eventos[-1]["end"]["dateTime"]).strftime("%H:%M")
+        last_ev = pd.to_datetime(eventos[-1]["end"]["dateTime"])
+        if last_ev.tzinfo is None: last_ev = last_ev.tz_localize('UTC')
+        fim_str = last_ev.tz_convert(TZ_SP).strftime("%H:%M")
+        
     h = int(mins // 60); m = int(mins % 60); liv = max(0, 480 - mins)
 
     st.markdown("<h4 style='color:#111827;margin-top:24px;margin-bottom:4px;font-family:Inter,sans-serif;'>Day Pulse</h4>", unsafe_allow_html=True)
