@@ -35,7 +35,7 @@ def buscar_agenda(token, data_alvo):
         "$orderby": "start/dateTime",
         "$top": 50
     }
-    headers = {"Authorization": f"Bearer {token}"} # Removido o 'Prefer' para receber tudo em UTC puro
+    headers = {"Authorization": f"Bearer {token}"} 
     
     try:
         r = requests.get(url, headers=headers, params=params)
@@ -203,7 +203,7 @@ html,body{background:transparent;padding:4px 0 6px}
 
   function send(s){
     var p=s.split("-");
-    var fmt=p[0]+"/"+p[1]+"/"+p[2]; // Formato seguro e universal
+    var fmt=p[0]+"/"+p[1]+"/"+p[2]; 
     var docs=[];
     try{docs.push(window.parent.document)}catch(e){}
     try{if(window.top!==window.parent)docs.push(window.top.document)}catch(e){}
@@ -267,13 +267,20 @@ html,body{background:transparent;padding:4px 0 6px}
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-.stApp,[data-testid="stAppViewContainer"]{background:#F9FAFB!important}
+
+/* SOLUÇÃO PARA O FUNDO PRETO: Força todo o HTML e Containers a ficarem cinza claro */
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainBlockContainer"] {
+    background-color: #F9FAFB !important;
+}
+
 header[data-testid="stHeader"]{background:transparent!important;height:0!important}
 .stAppDeployButton{display:none!important}
 #MainMenu{visibility:hidden}
 footer{visibility:hidden}
 [data-testid="stSidebarCollapseButton"]{display:none!important}
 button[data-testid="collapsedControl"]{display:none!important}
+
+/* O sidebar se mantém escuro com esta regra específica */
 [data-testid="stSidebar"]{background:#111827!important}
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] p,
@@ -288,6 +295,7 @@ ul[data-baseweb="menu"] li{color:#F9FAFB!important;font-family:'Inter',sans-seri
 ul[data-baseweb="menu"] li:hover{background:#374151!important}
 [data-testid="stSidebar"] button{background:#7F1D1D!important;color:#FEE2E2!important;border:1px solid #991B1B!important;font-weight:600!important;border-radius:8px!important}
 [data-testid="stSidebar"] button:hover{background:#991B1B!important}
+
 .dashboard-header{margin-top:10px;margin-bottom:20px;font-family:'Inter',sans-serif}
 .dashboard-header h1{font-size:26px;font-weight:800;color:#111827;margin:0}
 .dashboard-header p{font-size:14px;color:#6B7280;margin:4px 0 0}
@@ -409,7 +417,6 @@ if opcao == "🏠 Inicio":
     # ── AGENDA ────────────────────────────────────────────────────────────────
     eventos = buscar_agenda(st.session_state["access_token"], data_sel)
     
-    # Se a função retornar "EXPIRADO" por erro 401, forçamos o encerramento da sessão
     if eventos == "EXPIRADO":
         st.session_state.clear()
         st.rerun()
@@ -427,7 +434,6 @@ if opcao == "🏠 Inicio":
     else:
         st.markdown('<div class="nexuma-card">', unsafe_allow_html=True)
         for i, ev in enumerate(eventos):
-            # Converte as strings UTC da Microsoft para DateTime, e então para Fuso SP
             dt_inicio = pd.to_datetime(ev["start"]["dateTime"])
             if dt_inicio.tzinfo is None: dt_inicio = dt_inicio.tz_localize('UTC')
             hi = dt_inicio.tz_convert(TZ_SP).strftime("%H:%M")
