@@ -31,7 +31,6 @@ base64_logo = get_image_base64("logo.png")
 if base64_logo:
     img_tag_logo = f'<img src="data:image/png;base64,{base64_logo}" class="logo-azzas">'
 else:
-    # Se ele não achar o arquivo, apenas não exibe nada e não quebra o código
     img_tag_logo = ''
 
 # ── FUNÇÕES DE DADOS E HTML ───────────────────────────────────────────────────
@@ -297,17 +296,17 @@ button[data-testid="collapsedControl"]{display:none!important}
 /* ========================================= */
 .logo-azzas {
     position: fixed;
-    top: 18px; /* Alinhado horizontalmente com o Menu */
+    top: 18px; 
     right: 20px;
-    width: 170px; /* Maior no Desktop */
+    width: 170px; 
     z-index: 999998;
     pointer-events: none;
 }
 @media (max-width: 768px) {
     .logo-azzas {
-        top: 18px; /* Desce um pouco para afastar da borda da tela no celular */
-        right: 14px; /* Alinha o recuo direito com o recuo esquerdo do botão Menu */
-        width: 145px; /* Aumentado para ficar visível e proporcional */
+        top: 18px; 
+        right: 14px; 
+        width: 145px; 
     }
 }
 
@@ -332,10 +331,10 @@ ul[data-baseweb="menu"] li:hover{background:#374151!important}
 [data-testid="stSidebar"] button:hover{background:#991B1B!important}
 
 /* ========================================= */
-/* MARGEM DO CABEÇALHO AUMENTADA PARA NÃO BATER NO LOGO */
+/* MARGEM DO CABEÇALHO */
 /* ========================================= */
 .dashboard-header{
-    margin-top: 75px; /* Empurra o "Olá, Gestor" lá para baixo, longe do logo */
+    margin-top: 75px; 
     margin-bottom: 20px;
     font-family:'Inter',sans-serif;
 }
@@ -429,7 +428,10 @@ with st.sidebar:
         <h2 style="margin:0;font-weight:800;font-size:22px;color:#FFF;font-family:'Inter',sans-serif;">GestorHub</h2>
     </div>""", unsafe_allow_html=True)
     st.markdown("<p style='font-size:11px;color:#9CA3AF;margin-bottom:5px;letter-spacing:.08em;text-transform:uppercase;'>Navegacao</p>", unsafe_allow_html=True)
-    opcao = st.selectbox("nav", ["🏠 Inicio", "📊 Chamados", "🎥 Resumos tl;dv"], label_visibility="collapsed")
+    
+    # NOVA ORDEM DO MENU AQUI:
+    opcao = st.selectbox("nav", ["🏠 Inicio", "🎥 Resumos tl;dv", "📊 Chamados"], label_visibility="collapsed")
+    
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     if st.button("Sair da Conta", use_container_width=True):
         st.session_state.clear()
@@ -535,17 +537,6 @@ if opcao == "🏠 Inicio":
         </div>
     </div>""", unsafe_allow_html=True)
 
-# ── CHAMADOS ──────────────────────────────────────────────────────────────────
-elif opcao == "📊 Chamados":
-    st.markdown("""
-    <div class="dashboard-header"><h1>Chamados</h1><p>Acompanhamento de SLAs em tempo real</p></div>
-    """, unsafe_allow_html=True)
-    link_pbi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
-    st.markdown(f"""
-    <div class="nexuma-card" style="padding:12px;">
-        <div class="pbi-wrapper"><iframe src="{link_pbi}" allowFullScreen="true"></iframe></div>
-    </div>""", unsafe_allow_html=True)
-
 # ── RESUMOS ───────────────────────────────────────────────────────────────────
 elif opcao == "🎥 Resumos tl;dv":
     st.markdown("""
@@ -560,4 +551,15 @@ elif opcao == "🎥 Resumos tl;dv":
         </div>
         <br>
         <a href="#" class="btn-primary">🔗 Assistir Gravacao no tl;dv</a>
+    </div>""", unsafe_allow_html=True)
+
+# ── CHAMADOS ──────────────────────────────────────────────────────────────────
+elif opcao == "📊 Chamados":
+    st.markdown("""
+    <div class="dashboard-header"><h1>Chamados</h1><p>Acompanhamento de SLAs em tempo real</p></div>
+    """, unsafe_allow_html=True)
+    link_pbi = "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14"
+    st.markdown(f"""
+    <div class="nexuma-card" style="padding:12px;">
+        <div class="pbi-wrapper"><iframe src="{link_pbi}" allowFullScreen="true"></iframe></div>
     </div>""", unsafe_allow_html=True)
