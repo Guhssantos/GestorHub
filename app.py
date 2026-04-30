@@ -50,13 +50,11 @@ def buscar_agenda(token, data_alvo):
             
         resultado = []
         for ev in r.json().get("value", []):
-            # Força a conversão do horário UTC recebido da Microsoft para São Paulo
             dt_utc = pd.to_datetime(ev["start"]["dateTime"])
             if dt_utc.tzinfo is None:
                 dt_utc = dt_utc.tz_localize('UTC')
             dt_sp = dt_utc.tz_convert(TZ_SP)
             
-            # Garante que só retorna eventos do dia selecionado
             if dt_sp.date() == data_alvo:
                 resultado.append(ev)
         return resultado
@@ -268,7 +266,7 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
 
-/* SOLUÇÃO PARA O FUNDO PRETO: Força todo o HTML e Containers a ficarem cinza claro */
+/* SOLUÇÃO PARA O FUNDO PRETO GERAL */
 html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainBlockContainer"] {
     background-color: #F9FAFB !important;
 }
@@ -280,8 +278,12 @@ footer{visibility:hidden}
 [data-testid="stSidebarCollapseButton"]{display:none!important}
 button[data-testid="collapsedControl"]{display:none!important}
 
-/* O sidebar se mantém escuro com esta regra específica */
-[data-testid="stSidebar"]{background:#111827!important}
+/* SOLUÇÃO PARA A SIDEBAR (Garante que o fundo escuro ocupe de ponta a ponta) */
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div:first-child {
+    background-color: #111827 !important;
+    height: 100vh !important;
+}
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] label,
@@ -432,7 +434,9 @@ if opcao == "🏠 Inicio":
             <p style="color:#6B7280;font-size:15px;margin-top:10px;font-family:Inter,sans-serif;">Nenhum evento neste dia.</p>
         </div>""", unsafe_allow_html=True)
     else:
-        st.markdown('<div class="nexuma-card">', unsafe_allow_html=True)
+        # SOLUÇÃO PARA A BARRA BRANCA: Concatenar tudo em uma única string HTML
+        html_agenda = '<div class="nexuma-card">'
+        
         for i, ev in enumerate(eventos):
             dt_inicio = pd.to_datetime(ev["start"]["dateTime"])
             if dt_inicio.tzinfo is None: dt_inicio = dt_inicio.tz_localize('UTC')
@@ -448,15 +452,19 @@ if opcao == "🏠 Inicio":
                     '<span style="color:#9CA3AF;font-size:12px;">Sem link</span>'
             borda = "" if i == total-1 else "border-bottom:1px solid #F3F4F6;"
             
-            st.markdown(f"""
+            html_agenda += f"""
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;{borda}gap:12px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:0;">
                     <h4 style="margin:0;font-size:15px;color:#111827;font-family:Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{titulo}</h4>
                     <p style="margin:3px 0 0;font-size:13px;color:#6B7280;font-family:Inter,sans-serif;">🕒 {hi} - {hf}</p>
                 </div>
                 <div style="flex-shrink:0;">{btn}</div>
-            </div>""", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+            </div>"""
+            
+        html_agenda += '</div>'
+        
+        # Imprime o HTML inteiro de uma única vez, sem criar quebras vazias
+        st.markdown(html_agenda, unsafe_allow_html=True)
 
     # ── DAY PULSE ─────────────────────────────────────────────────────────────
     mins, fim_str = 0, "--:--"
