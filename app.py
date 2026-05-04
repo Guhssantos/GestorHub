@@ -652,56 +652,52 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date) -> str:
-    """Calendário mini totalmente auto-contido: JS gerencia navegação de meses,
-    postMessage envia a data selecionada para o Streamlit pai."""
     hoje_iso = datetime.now(tz=TZ_SP).date().isoformat()
     sel_iso  = data_sel.isoformat()
-    meses_js = str(MESES_PT).replace("'", '"')
-    return f"""<div id="mc"></div>
-<script>
-(function(){{
-  var MESES={meses_js};
-  var HOJE="{hoje_iso}", SEL="{sel_iso}";
-  var hY=+HOJE.slice(0,4), hM=+HOJE.slice(5,7)-1, hD=+HOJE.slice(8,10);
-  var sY=+SEL.slice(0,4),  sM=+SEL.slice(5,7)-1,  sD=+SEL.slice(8,10);
-  var cy=sY, cm=sM;
-
-  function z(n){{return n<10?"0"+n:""+n;}}
-  function iso(y,m,d){{return y+"-"+z(m+1)+"-"+z(d);}}
-
-  function render(){{
-    var first=new Date(cy,cm,1).getDay();
-    var days=new Date(cy,cm+1,0).getDate();
-    var py=cm===0?cy-1:cy, pm=cm===0?11:cm-1;
-    var ny=cm===11?cy+1:cy, nm=cm===11?0:cm+1;
-    var h="";
-    h+='<div class="mcal-nav">';
-    h+='<span class="nav-arr" onclick="navM('+py+','+(pm)+')" tabindex="0">&#8249;</span>';
-    h+='<span class="mcal-mon">'+MESES[cm]+' '+cy+'</span>';
-    h+='<span class="nav-arr" onclick="navM('+ny+','+(nm)+')" tabindex="0">&#8250;</span>';
-    h+='</div><div class="cal-grid">';
-    h+='<div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>';
-    for(var i=0;i<first;i++) h+='<div class="cal-day out"></div>';
-    for(var d=1;d<=days;d++){{
-      var isoStr=iso(cy,cm,d);
-      var isH=(cy===hY&&cm===hM&&d===hD);
-      var isS=(cy===sY&&cm===sM&&d===sD);
-      var cls="cal-day"+(isH?" today":isS?" sel":"");
-      h+='<div class="'+cls+'" tabindex="0" onclick="pick(''+isoStr+'')">'+d+'</div>';
-    }}
-    h+='</div>';
-    document.getElementById("mc").innerHTML=h;
-  }}
-
-  window.navM=function(y,m){{cy=+y;cm=+m;render();}};
-  window.pick=function(isoStr){{
-    try{{window.parent.postMessage({{type:"gh_pick",iso:isoStr}},"*");}}catch(e){{}}
-    try{{window.top.postMessage({{type:"gh_pick",iso:isoStr}},"*");}}catch(e){{}}
-  }};
-
-  render();
-}})();
-</script>"""
+    meses_js = '["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]'
+    # Monta o HTML+JS como string pura (sem f-string no JS para evitar conflito de chaves/aspas)
+    html = '<div id="ghcal"></div>\n'
+    html += '<script>\n'
+    html += '(function(){\n'
+    html += '  var MESES=' + meses_js + ';\n'
+    html += '  var HOJE="' + hoje_iso + '", SEL="' + sel_iso + '";\n'
+    html += '  var hY=+HOJE.slice(0,4),hM=+HOJE.slice(5,7)-1,hD=+HOJE.slice(8,10);\n'
+    html += '  var sY=+SEL.slice(0,4), sM=+SEL.slice(5,7)-1, sD=+SEL.slice(8,10);\n'
+    html += '  var cy=sY,cm=sM;\n'
+    html += '  function z(n){return n<10?"0"+n:""+n;}\n'
+    html += '  function mkiso(y,m,d){return y+"-"+z(m+1)+"-"+z(d);}\n'
+    html += '  function render(){\n'
+    html += '    var first=new Date(cy,cm,1).getDay();\n'
+    html += '    var days=new Date(cy,cm+1,0).getDate();\n'
+    html += '    var py=cm===0?cy-1:cy, pm=cm===0?11:cm-1;\n'
+    html += '    var ny=cm===11?cy+1:cy, nm=cm===11?0:cm+1;\n'
+    html += '    var h="";\n'
+    html += '    h+=\'<div class="mcal-nav">\';\n'
+    html += '    h+=\'<span class="nav-arr" onclick="navM(\'+py+\',\'+pm+\')">&#8249;</span>\';\n'
+    html += '    h+=\'<span class="mcal-mon">\'+MESES[cm]+\' \'+cy+\'</span>\';\n'
+    html += '    h+=\'<span class="nav-arr" onclick="navM(\'+ny+\',\'+nm+\')">&#8250;</span>\';\n'
+    html += '    h+=\'</div><div class="cal-grid">\';\n'
+    html += '    h+=\'<div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>\';\n'
+    html += '    for(var i=0;i<first;i++) h+=\'<div class="cal-day out">&nbsp;</div>\';\n'
+    html += '    for(var d=1;d<=days;d++){\n'
+    html += '      var iso=mkiso(cy,cm,d);\n'
+    html += '      var isH=(cy===hY&&cm===hM&&d===hD);\n'
+    html += '      var isS=(cy===sY&&cm===sM&&d===sD);\n'
+    html += '      var cls="cal-day"+(isH?" today":isS?" sel":"");\n'
+    html += '      h+=\'<div class="\'+cls+\'" onclick="pickDay(\\"\'+iso+\'\\")">\'+d+\'</div>\';\n'
+    html += '    }\n'
+    html += '    h+=\'</div>\';\n'
+    html += '    document.getElementById("ghcal").innerHTML=h;\n'
+    html += '  }\n'
+    html += '  window.navM=function(y,m){cy=+y;cm=+m;render();};\n'
+    html += '  window.pickDay=function(iso){\n'
+    html += '    try{window.parent.postMessage({type:"gh_pick",iso:iso},"*");}catch(e){}\n'
+    html += '    try{window.top.postMessage({type:"gh_pick",iso:iso},"*");}catch(e){}\n'
+    html += '  };\n'
+    html += '  render();\n'
+    html += '})();\n'
+    html += '</script>\n'
+    return html
 
 
 def _calendar_widget(label: str, hoje_iso: str, sel_iso: str) -> str:
