@@ -321,6 +321,40 @@ ul[data-baseweb="menu"] li { color:#F5F3EF !important; font-family:'DM Sans',san
 ul[data-baseweb="menu"] li:hover { background:#2A2A2A !important; }
 
 div[data-testid="stHtml"] { overflow:visible !important; }
+
+/* ── MOBILE BOTTOM NAV ── */
+@media (max-width: 768px) {
+  [data-testid="stSidebar"] { display: none !important; }
+  [data-testid="stMainBlockContainer"] { padding-bottom: 80px !important; }
+
+  /* Stack columns vertically on mobile */
+  [data-testid="stHorizontalBlock"] {
+    flex-direction: column !important;
+  }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    width: 100% !important; min-width: 100% !important;
+  }
+
+  .mobile-nav {
+    display: flex !important;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
+    background: #0D0D0D; border-top: 1px solid rgba(255,255,255,.08);
+    height: 64px; align-items: center; justify-content: space-around;
+    padding: 0 8px; padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .mob-nav-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; flex: 1; cursor: pointer; background: none; border: none;
+    color: rgba(255,255,255,.38); font-family: 'DM Sans', sans-serif;
+    font-size: 10px; font-weight: 500; padding: 8px 4px; border-radius: 8px;
+    transition: color .15s; -webkit-tap-highlight-color: transparent;
+  }
+  .mob-nav-btn.active { color: #fff; }
+  .mob-nav-btn .mob-icon { font-size: 20px; line-height: 1; }
+}
+@media (min-width: 769px) {
+  .mobile-nav { display: none !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -507,6 +541,7 @@ with st.sidebar:
 
     opcao = st.selectbox("nav",
         ["🏠  Início", "🎥  Resumos tl;dv", "📊  Chamados"],
+        index={"inicio": 0, "resumos": 1, "chamados": 2}.get(st.query_params.get("page", ""), 0),
         label_visibility="collapsed")
 
     _ativo = {"🏠  Início": 0, "🎥  Resumos tl;dv": 1, "📊  Chamados": 2}[opcao]
@@ -532,6 +567,31 @@ with st.sidebar:
     if st.button("Sair da conta", use_container_width=True):
         st.session_state.clear(); st.rerun()
 
+# ── MOBILE BOTTOM NAV ─────────────────────────────────────────────────────────
+_mob_active = {"🏠  Início": 0, "🎥  Resumos tl;dv": 1, "📊  Chamados": 2}.get(opcao, 0)
+_mob_nav_items = [("🏠", "Início", "inicio"), ("🎥", "Resumos", "resumos"), ("📊", "Chamados", "chamados")]
+_mob_btns = ""
+for _i, (_ico, _lbl, _pg_key) in enumerate(_mob_nav_items):
+    _cls = "mob-nav-btn active" if _i == _mob_active else "mob-nav-btn"
+    _mob_btns += f'<button class="{_cls}" onclick="mobNav(\'{_pg_key}\')" aria-label="{_lbl}"><span class="mob-icon">{_ico}</span>{_lbl}</button>'
+
+st.markdown(f"""
+<div class="mobile-nav" id="mob-nav">
+  {_mob_btns}
+</div>
+<script>
+function mobNav(page){{
+  try{{
+    var url=new URL(window.parent.location.href);
+    url.searchParams.set("page",page);
+    window.parent.location.href=url.toString();
+  }}catch(e){{
+    window.location.href="?page="+page;
+  }}
+}}
+</script>
+""", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPERS
@@ -553,6 +613,7 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date) -> str:
+    """Static mini-calendar used inside the sidebar card (desktop). Clicking navigates."""
     hoje  = datetime.now(tz=TZ_SP).date()
     y, m  = data_sel.year, data_sel.month
     first = (date(y, m, 1).weekday() + 1) % 7
@@ -561,14 +622,24 @@ def _mini_cal_html(data_sel: date) -> str:
     cells = '<div class="cal-day out"></div>' * first
     for d in range(1, total + 1):
         dt  = date(y, m, d)
+        iso = dt.isoformat()
         cls = "cal-day" + (" today" if dt == hoje else " sel" if dt == data_sel else "")
-        cells += f'<div class="{cls}">{d}</div>'
+        cells += f'<div class="{cls}" onclick="pickDate(\'{iso}\')" style="cursor:pointer">{d}</div>'
+
+    # prev / next month
+    if m == 1: prev_y, prev_m = y-1, 12
+    else:      prev_y, prev_m = y,   m-1
+    if m == 12: next_y, next_m = y+1, 1
+    else:       next_y, next_m = y,   m+1
+
     return f"""
     <div class="mini-cal">
       <div class="mcal-nav">
-        <span style="font-size:16px;color:#8A8A8A;">&#8249;</span>
+        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
+              onclick="navMonth('{date(prev_y,prev_m,1).isoformat()}')">&#8249;</span>
         <span class="mcal-mon">{MESES_PT[m-1]} {y}</span>
-        <span style="font-size:16px;color:#8A8A8A;">&#8250;</span>
+        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
+              onclick="navMonth('{date(next_y,next_m,1).isoformat()}')">&#8250;</span>
       </div>
       <div class="cal-grid">
         <div class="cal-dow">D</div><div class="cal-dow">S</div>
@@ -576,7 +647,27 @@ def _mini_cal_html(data_sel: date) -> str:
         <div class="cal-dow">Q</div><div class="cal-dow">S</div>
         <div class="cal-dow">S</div>{cells}
       </div>
-    </div>"""
+    </div>
+    <script>
+    function _sendDate(iso){{
+      var p=iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
+      var docs=[];
+      try{{docs.push(window.parent.document)}}catch(e){{}}
+      try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
+      for(var i=0;i<docs.length;i++){{
+        var inp=docs[i].querySelector('[data-testid="stDateInput"] input');
+        if(inp){{
+          var sv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
+          sv.set.call(inp,fmt);
+          inp.dispatchEvent(new Event("input",{{bubbles:true}}));
+          inp.dispatchEvent(new Event("change",{{bubbles:true}}));
+          return;
+        }}
+      }}
+    }}
+    function pickDate(iso){{ _sendDate(iso); }}
+    function navMonth(iso){{ _sendDate(iso); }}
+    </script>"""
 
 
 def _calendar_widget(label: str, hoje_iso: str, sel_iso: str) -> str:
@@ -788,14 +879,42 @@ def pagina_inicio():
                   {btn}
                 </div>"""
 
-        st.markdown(f"""
+        agenda_html = f"""
         <div class="gh-card">
           <div class="card-hd">
             <span class="card-title">Agenda do dia</span>
             <span class="card-meta">{total} evento{'s' if total!=1 else ''}</span>
           </div>
           {rows}
-        </div>""", unsafe_allow_html=True)
+        </div>"""
+        components.html(f"""<!DOCTYPE html><html><head>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>
+        *{{box-sizing:border-box;margin:0;padding:0}}
+        html,body{{background:#F5F3EF;font-family:'DM Sans',system-ui,sans-serif}}
+        .gh-card{{background:#FFF;border:1px solid rgba(13,13,13,.09);border-radius:14px;overflow:hidden;font-family:'DM Sans',sans-serif;margin-bottom:4px}}
+        .card-hd{{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07)}}
+        .card-title{{font-size:13px;font-weight:500;color:#0D0D0D}}
+        .card-meta{{font-size:11px;color:#8A8A8A}}
+        .event-row{{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid rgba(13,13,13,.06);transition:background .1s;font-family:'DM Sans',sans-serif}}
+        .event-row:last-child{{border-bottom:none}}
+        .event-row:hover{{background:#F5F3EF}}
+        .ev-times{{width:48px;flex-shrink:0;text-align:right}}
+        .ev-time{{font-family:'DM Mono',monospace;font-size:11px;color:#8A8A8A;line-height:1.5}}
+        .ev-bar{{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:36px}}
+        .ev-body{{flex:1;min-width:0}}
+        .ev-title{{font-size:13px;font-weight:500;color:#0D0D0D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+        .ev-sub{{font-size:11px;color:#8A8A8A;margin-top:2px}}
+        .btn-join{{font-size:11px;font-weight:500;padding:6px 13px;border-radius:6px;background:#0D0D0D;color:#fff!important;border:none;text-decoration:none!important;flex-shrink:0;transition:opacity .12s;font-family:'DM Sans',sans-serif;cursor:pointer}}
+        .btn-join:hover{{opacity:.75}}
+        .no-link{{font-size:11px;color:#CCC;flex-shrink:0}}
+        .allday-badge{{font-size:10px;font-weight:500;padding:3px 8px;border-radius:4px;background:#F0EDE8;color:#8A8A8A;flex-shrink:0}}
+        .empty-box{{text-align:center;padding:36px 20px}}
+        .empty-box .ei{{font-size:26px}}
+        .empty-box p{{font-size:13px;color:#8A8A8A;margin-top:8px}}
+        </style></head><body>{agenda_html}</body></html>""",
+        height=max(120, 68 + total * 70), scrolling=False)
 
     with col_side:
         total_min = sum(_duracao_min(ev) for ev in eventos if not ev.get("_allday"))
@@ -825,11 +944,34 @@ def pagina_inicio():
             <div class="prog-lbl"><span>Ocupação</span><span>{pct}%</span></div>
             <div class="prog-track"><div class="prog-fill" style="width:{pct}%"></div></div>
           </div>
-        </div>
+        </div>""", unsafe_allow_html=True)
+
+        st.markdown("""
         <div class="gh-card">
           <div class="card-hd"><span class="card-title">Calendário</span></div>
-          {_mini_cal_html(data_sel)}
-        </div>""", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        cal_inner = _mini_cal_html(data_sel)
+        components.html(
+            f"""<!DOCTYPE html><html><head>
+            <meta charset="UTF-8">
+            <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+            <style>
+            *{{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',system-ui,sans-serif}}
+            html,body{{background:#fff;padding:0}}
+            .mini-cal{{padding:13px 20px}}
+            .mcal-nav{{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}}
+            .mcal-mon{{font-size:12px;font-weight:500;color:#0D0D0D}}
+            .cal-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
+            .cal-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;padding:3px 0;letter-spacing:.04em;text-transform:uppercase}}
+            .cal-day{{font-size:11px;font-family:'DM Mono',monospace;text-align:center;padding:5px 2px;border-radius:5px;color:#0D0D0D}}
+            .cal-day:hover:not(.out){{background:#F5F3EF;cursor:pointer}}
+            .cal-day.today{{background:#0D0D0D;color:#fff}}
+            .cal-day.sel:not(.today){{background:#E8E5DF}}
+            .cal-day.out{{color:rgba(13,13,13,.18);pointer-events:none}}
+            </style></head><body>{cal_inner}</body></html>""",
+            height=240, scrolling=False
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
