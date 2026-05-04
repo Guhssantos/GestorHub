@@ -605,21 +605,9 @@ function mobNav(page){{
     window.location.href=u.toString();
   }}catch(e2){{window.location.href="?page="+page;}}
 }}
-// Listener para receber postMessage do iframe do calendário
+// Listener para navegação mobile vinda de iframe interno
 window.addEventListener("message",function(e){{
   if(!e.data||typeof e.data!=="object")return;
-  // Calendário: data selecionada
-  if(e.data.type==="gh_pick"&&e.data.iso){{
-    var p=e.data.iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
-    var inp=document.querySelector('[data-testid="stDateInput"] input');
-    if(inp){{
-      var dsc=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
-      dsc.set.call(inp,fmt);
-      inp.dispatchEvent(new Event("input",{{bubbles:true}}));
-      inp.dispatchEvent(new Event("change",{{bubbles:true}}));
-    }}
-  }}
-  // Navegação mobile vinda de iframe interno
   if(e.data.type==="gh_nav"&&e.data.page){{
     try{{
       var u=new URL(window.location.href);
@@ -691,8 +679,8 @@ def _mini_cal_html(data_sel: date) -> str:
     html += '  }\n'
     html += '  window.navM=function(y,m){cy=+y;cm=+m;render();};\n'
     html += '  window.pickDay=function(iso){\n'
-    html += '    try{window.parent.postMessage({type:"gh_pick",iso:iso},"*");}catch(e){}\n'
-    html += '    try{window.top.postMessage({type:"gh_pick",iso:iso},"*");}catch(e){}\n'
+    html += '    var go=function(ctx){try{var u=new URL(ctx.location.href);u.searchParams.set("date",iso);ctx.location.href=u.toString();return true;}catch(e){return false;}};\n'
+    html += '    if(!go(window))if(!go(window.parent))go(window.top);\n'
     html += '  };\n'
     html += '  render();\n'
     html += '})();\n'
@@ -752,6 +740,19 @@ def pagina_inicio():
            "Agenda sincronizada com a Microsoft")
 
     hoje_sp = datetime.now(tz=TZ_SP).date()
+    # Lê ?date=YYYY-MM-DD enviado pelo clique no calendário JS
+    _qdate = st.query_params.get("date", "")
+    if _qdate:
+        try:
+            _parsed = date.fromisoformat(_qdate)
+            st.session_state["data_agenda"] = _parsed
+        except ValueError:
+            pass
+        # Remove o param para não ficar em loop
+        _qp = dict(st.query_params)
+        _qp.pop("date", None)
+        st.query_params.clear()
+        for _k,_v in _qp.items(): st.query_params[_k] = _v
     if st.session_state["data_agenda"] is None:
         st.session_state["data_agenda"] = hoje_sp
     data_sel = st.session_state["data_agenda"]
