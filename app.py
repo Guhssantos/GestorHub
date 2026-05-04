@@ -452,7 +452,9 @@ if not st.session_state["logado_ms"]:
   <div class="right">
     <h2>Bom dia, Gestor.</h2>
     <p>Acesse com sua conta corporativa Microsoft para carregar sua agenda e seus painéis em tempo real.</p>
-    <a href="{auth_url}" class="ms-btn">
+
+    <!-- O botão usa onclick + window.top.location.href para sair do sandbox do iframe -->
+    <button class="ms-btn" onclick="doLogin()">
       <svg class="ms-icon" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
         <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
@@ -460,13 +462,27 @@ if not st.session_state["logado_ms"]:
         <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
       </svg>
       Entrar com Microsoft 365
-    </a>
+    </button>
+
     <p class="terms">
       Seus dados são sincronizados apenas com sua conta corporativa.<br>
       Nenhuma informação é armazenada em servidores externos.
     </p>
   </div>
 </div>
+
+<script>
+  var AUTH_URL = {repr(auth_url)};
+  function doLogin() {{
+    // Navega no contexto pai (o navegador real), não dentro do iframe sandboxed
+    try {{
+      window.top.location.href = AUTH_URL;
+    }} catch(e) {{
+      // Fallback: abre numa nova aba se window.top for bloqueado por CSP
+      window.open(AUTH_URL, '_blank');
+    }}
+  }}
+</script>
 </body>
 </html>"""
 
