@@ -494,9 +494,10 @@ if not st.session_state["logado_ms"]:
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 usuario  = st.session_state.get("usuario", {})
-nome     = usuario.get("displayName", "Gestor")
+nome     = usuario.get("displayName") or "Gestor"
 iniciais = "".join([p[0].upper() for p in nome.split()[:2]]) if nome else "GH"
-cargo    = usuario.get("jobTitle", "Colaborador")
+cargo    = usuario.get("jobTitle") or "Colaborador"
+email    = usuario.get("mail") or usuario.get("userPrincipalName") or ""
 
 with st.sidebar:
     st.markdown(f"""
@@ -515,12 +516,14 @@ with st.sidebar:
         nav_html += f'<div class="{cls}"><span class="nav-icon">{icon}</span> {lbl}</div>'
     st.markdown(nav_html, unsafe_allow_html=True)
 
+    nome_safe  = html_lib.escape(str(nome))
+    cargo_safe = html_lib.escape(str(cargo))
     st.markdown(f"""
     <div class="user-chip">
         <div class="user-avatar">{iniciais}</div>
         <div style="overflow:hidden;">
-            <div class="user-name">{html_lib.escape(nome)}</div>
-            <div class="user-role">{html_lib.escape(cargo)}</div>
+            <div class="user-name">{nome_safe}</div>
+            <div class="user-role">{cargo_safe}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -537,11 +540,13 @@ def topbar(titulo: str, subtitulo: str):
     hoje_sp = datetime.now(tz=TZ_SP)
     dias    = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"]
     dstr    = f"{dias[hoje_sp.weekday()]}, {hoje_sp.day} de {MESES_PT[hoje_sp.month-1]} de {hoje_sp.year}"
+    t_safe  = html_lib.escape(str(titulo or ""))
+    s_safe  = html_lib.escape(str(subtitulo or ""))
     st.markdown(f"""
     <div class="gh-topbar">
         <div>
-            <h2>{html_lib.escape(titulo)}</h2>
-            <p>{html_lib.escape(subtitulo)} · {dstr}</p>
+            <h2>{t_safe}</h2>
+            <p>{s_safe} · {dstr}</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -760,7 +765,7 @@ def pagina_inicio():
         else:
             for i, ev in enumerate(eventos):
                 cor   = cores[i % len(cores)]
-                titre = html_lib.escape(ev.get("subject","Sem título"))
+                titre = html_lib.escape(str(ev.get("subject") or "Sem título"))
                 if ev.get("_allday"):
                     btn = '<span class="allday-badge">Dia todo</span>'; hi = hf = "–"
                 else:
