@@ -323,6 +323,7 @@ ul[data-baseweb="menu"] li:hover { background:#2A2A2A !important; }
 div[data-testid="stHtml"] { overflow:visible !important; }
 
 /* ── MOBILE BOTTOM NAV ── */
+
 @media (max-width: 768px) {
   [data-testid="stSidebar"] { display: none !important; }
   [data-testid="stMainBlockContainer"] { padding-bottom: 80px !important; }
@@ -356,6 +357,37 @@ div[data-testid="stHtml"] { overflow:visible !important; }
   .mobile-nav { display: none !important; }
 }
 </style>
+""", unsafe_allow_html=True)
+
+# ── postMessage listener: recebe eventos dos iframes (calendário e nav mobile) ──
+st.markdown("""
+<script>
+(function(){
+  if(window._gh_listener) return;
+  window._gh_listener = true;
+  window.addEventListener("message", function(e){
+    var d = e.data;
+    if(!d || typeof d !== "object") return;
+    if(d.type === "gh_date_pick" && d.iso){
+      var p = d.iso.split("-");
+      var fmt = p[1]+"/"+p[2]+"/"+p[0];
+      var inp = document.querySelector('[data-testid="stDateInput"] input');
+      if(inp){
+        var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
+        desc.set.call(inp, fmt);
+        inp.dispatchEvent(new Event("input",{bubbles:true}));
+        inp.dispatchEvent(new Event("change",{bubbles:true}));
+      }
+    }
+    if(d.type === "gh_mob_nav" && d.page){
+      var url = new URL(window.location.href);
+      url.searchParams.set("page", d.page);
+      url.searchParams.delete("mob_nav");
+      window.location.href = url.toString();
+    }
+  });
+})();
+</script>
 """, unsafe_allow_html=True)
 
 
@@ -595,21 +627,12 @@ st.markdown(f"""
 </div>
 <script>
 function mobNav(page){{
-  // Update query param and reload — works in both iframe and top-level contexts
-  var target = window.top || window.parent || window;
   try {{
-    var url = new URL(target.location.href);
-    url.searchParams.set("page", page);
-    // Remove stale mob_nav param if present
-    url.searchParams.delete("mob_nav");
-    target.location.href = url.toString();
-  }} catch(e) {{
-    try {{
-      window.parent.location.href = "?page=" + page;
-    }} catch(e2) {{
-      window.location.href = "?page=" + page;
-    }}
-  }}
+    window.parent.postMessage({{type:"gh_mob_nav",page:page}}, "*");
+  }} catch(e) {{}}
+  try {{
+    window.location.href = "?page=" + page;
+  }} catch(e2) {{}}
 }}
 </script>
 """, unsafe_allow_html=True)
@@ -635,60 +658,63 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date) -> str:
-    """Static mini-calendar used inside the sidebar card (desktop). Clicking navigates."""
+    """Self-contained mini-calendar: JS handles month navigation, postMessage sends picked date."""
     hoje  = datetime.now(tz=TZ_SP).date()
-    y, m  = data_sel.year, data_sel.month
-    first = (date(y, m, 1).weekday() + 1) % 7
-    total = (date(y, m % 12 + 1, 1) - date(y, m, 1)).days if m < 12 \
-            else (date(y+1, 1, 1) - date(y, m, 1)).days
-    cells = '<div class="cal-day out"></div>' * first
-    for d in range(1, total + 1):
-        dt  = date(y, m, d)
-        iso = dt.isoformat()
-        cls = "cal-day" + (" today" if dt == hoje else " sel" if dt == data_sel else "")
-        cells += f'<div class="{cls}" onclick="pickDate(\'{iso}\')" style="cursor:pointer">{d}</div>'
-
-    # prev / next month
-    if m == 1: prev_y, prev_m = y-1, 12
-    else:      prev_y, prev_m = y,   m-1
-    if m == 12: next_y, next_m = y+1, 1
-    else:       next_y, next_m = y,   m+1
+    hoje_iso = hoje.isoformat()
+    sel_iso  = data_sel.isoformat()
+    meses_js = str(MESES_PT).replace("'", '"')
 
     return f"""
-    <div class="mini-cal">
-      <div class="mcal-nav">
-        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
-              onclick="navMonth('{date(prev_y,prev_m,1).isoformat()}')">&#8249;</span>
-        <span class="mcal-mon">{MESES_PT[m-1]} {y}</span>
-        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
-              onclick="navMonth('{date(next_y,next_m,1).isoformat()}')">&#8250;</span>
-      </div>
-      <div class="cal-grid">
-        <div class="cal-dow">D</div><div class="cal-dow">S</div>
-        <div class="cal-dow">T</div><div class="cal-dow">Q</div>
-        <div class="cal-dow">Q</div><div class="cal-dow">S</div>
-        <div class="cal-dow">S</div>{cells}
-      </div>
-    </div>
+    <div class="mini-cal" id="mc-wrap"></div>
     <script>
-    function _sendDate(iso){{
-      var p=iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
-      var docs=[];
-      try{{docs.push(window.parent.document)}}catch(e){{}}
-      try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-      for(var i=0;i<docs.length;i++){{
-        var inp=docs[i].querySelector('[data-testid="stDateInput"] input');
-        if(inp){{
-          var sv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
-          sv.set.call(inp,fmt);
-          inp.dispatchEvent(new Event("input",{{bubbles:true}}));
-          inp.dispatchEvent(new Event("change",{{bubbles:true}}));
-          return;
-        }}
+    (function(){{
+      var MESES = {meses_js};
+      var hoje  = new Date("{hoje_iso}T00:00:00");
+      var sel   = new Date("{sel_iso}T00:00:00");
+      var cy = sel.getFullYear(), cm = sel.getMonth(); // 0-indexed
+
+      function isoOf(y,m,d){{
+        return y+"-"+(m+1<10?"0"+(m+1):m+1)+"-"+(d<10?"0"+d:d);
       }}
-    }}
-    function pickDate(iso){{ _sendDate(iso); }}
-    function navMonth(iso){{ _sendDate(iso); }}
+      function render(){{
+        var first = new Date(cy, cm, 1).getDay(); // 0=Sun
+        var last  = new Date(cy, cm+1, 0).getDate();
+        var py = cm===0?cy-1:cy, pm = cm===0?11:cm-1;
+        var ny = cm===11?cy+1:cy, nm = cm===11?0:cm+1;
+        var prevIso = isoOf(py,pm,1);
+        var nextIso = isoOf(ny,nm,1);
+
+        var html = '<div class="mcal-nav">';
+        html += '<span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;" onclick="navM(\''+prevIso+'\')">&#8249;</span>';
+        html += '<span class="mcal-mon">'+MESES[cm]+' '+cy+'</span>';
+        html += '<span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;" onclick="navM(\''+nextIso+'\')">&#8250;</span>';
+        html += '</div><div class="cal-grid">';
+        html += '<div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>';
+
+        for(var i=0;i<first;i++) html += '<div class="cal-day out"></div>';
+        for(var d=1;d<=last;d++){{
+          var iso = isoOf(cy,cm,d);
+          var isHoje = (iso==="{hoje_iso}");
+          var isSel  = (iso==="{sel_iso}");
+          var cls = "cal-day"+(isHoje?" today":isSel?" sel":"");
+          html += '<div class="'+cls+'" style="cursor:pointer" onclick="pickD(\''+iso+'\')">'+ d +'</div>';
+        }}
+        html += '</div>';
+        document.getElementById("mc-wrap").innerHTML = html;
+      }}
+
+      window.navM = function(iso){{
+        var parts = iso.split("-");
+        cy = parseInt(parts[0]); cm = parseInt(parts[1])-1;
+        render();
+      }};
+      window.pickD = function(iso){{
+        try{{ window.parent.postMessage({{type:"gh_date_pick",iso:iso}},"*"); }}catch(e){{}}
+        try{{ window.top.postMessage({{type:"gh_date_pick",iso:iso}},"*"); }}catch(e){{}}
+      }};
+
+      render();
+    }})();
     </script>"""
 
 
