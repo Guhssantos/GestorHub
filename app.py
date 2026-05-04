@@ -758,10 +758,7 @@ def pagina_inicio():
     data_sel = st.session_state["data_agenda"]
     label    = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_ABR[data_sel.month-1]} {data_sel.year}"
 
-    data_input = st.date_input("data_oculta", value=data_sel,
-                               key="date_picker_hidden", label_visibility="collapsed")
-    if data_input != data_sel:
-        st.session_state["data_agenda"] = data_input; st.rerun()
+    # date_input principal agora é o cal_date_picker dentro do card Calendário
 
     components.html(_calendar_widget(label, hoje_sp.isoformat(), data_sel.isoformat()),
                     height=52, scrolling=False)
@@ -872,34 +869,73 @@ def pagina_inicio():
           </div>
         </div>""", unsafe_allow_html=True)
 
+        # ── Calendário: usa st.date_input nativo (única forma garantida de funcionar
+        #    cross-origin no Streamlit Cloud). CSS personalizado para visual do mini-cal.
         st.markdown("""
-        <div class="gh-card">
+        <style>
+        /* Wrapper do card calendário */
+        .cal-card-wrap { background:#fff; border:1px solid rgba(13,13,13,.09);
+                         border-radius:14px; overflow:hidden; margin-bottom:16px; }
+        .cal-card-wrap .card-hd { display:flex; align-items:center; padding:14px 20px;
+                                   border-bottom:1px solid rgba(13,13,13,.07); }
+        .cal-card-wrap .card-title { font-size:13px; font-weight:500; color:#0D0D0D;
+                                      font-family:'DM Sans',sans-serif; }
+        /* Esconde o label do date_input mas mantém o widget */
+        div[data-testid="stDateInput"] > label { display:none !important; }
+        /* Estiliza o container do date_input para parecer natural */
+        div[data-testid="stDateInput"] {
+            padding: 0 !important;
+        }
+        div[data-testid="stDateInput"] > div {
+            width: 100% !important;
+        }
+        /* Estiliza o input em si */
+        div[data-testid="stDateInput"] input {
+            font-family: 'DM Sans', sans-serif !important;
+            font-size: 13px !important;
+            border: none !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            color: #0D0D0D !important;
+            padding: 10px 20px !important;
+            box-shadow: none !important;
+        }
+        div[data-testid="stDateInput"] > div > div {
+            border: none !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+        }
+        /* Popup do calendário nativo */
+        div[data-baseweb="calendar"] {
+            font-family: 'DM Sans', sans-serif !important;
+            border: 1px solid rgba(13,13,13,.09) !important;
+            border-radius: 10px !important;
+            overflow: hidden !important;
+        }
+        div[data-baseweb="calendar"] button {
+            font-family: 'DM Sans', sans-serif !important;
+        }
+        /* Dia selecionado */
+        div[data-baseweb="calendar"] [aria-selected="true"] div {
+            background: #0D0D0D !important;
+            border-radius: 50% !important;
+        }
+        </style>
+        <div class="cal-card-wrap">
           <div class="card-hd"><span class="card-title">Calendário</span></div>
+        </div>
         """, unsafe_allow_html=True)
-        cal_inner = _mini_cal_html(data_sel)
-        components.html(
-            f"""<!DOCTYPE html><html><head>
-            <meta charset="UTF-8">
-            <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
-            <style>
-            *{{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',system-ui,sans-serif}}
-            html,body{{background:#fff;padding:0}}
-            .mini-cal{{padding:13px 20px}}
-            .mcal-nav{{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}}
-            .mcal-mon{{font-size:12px;font-weight:500;color:#0D0D0D}}
-            .cal-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
-            .cal-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;padding:3px 0;letter-spacing:.04em;text-transform:uppercase}}
-            .cal-day{{font-size:11px;font-family:'DM Mono',monospace;text-align:center;padding:5px 2px;border-radius:5px;color:#0D0D0D}}
-            .cal-day:hover:not(.out){{background:#F5F3EF;cursor:pointer}}
-            .cal-day.today{{background:#0D0D0D;color:#fff}}
-            .cal-day.sel:not(.today){{background:#E8E5DF}}
-            .cal-day.out{{color:rgba(13,13,13,.18);pointer-events:none}}
-            .nav-arr{{font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;user-select:none;}}
-            .nav-arr:hover{{color:#0D0D0D}}
-            </style></head><body>{cal_inner}</body></html>""",
-            height=260, scrolling=False
+        # st.date_input nativo — quando o usuário muda, o Streamlit faz rerun automaticamente
+        nova_data = st.date_input(
+            "Selecionar data",
+            value=data_sel,
+            key="cal_date_picker",
+            label_visibility="collapsed",
+            format="DD/MM/YYYY",
         )
-        st.markdown("</div>", unsafe_allow_html=True)
+        if nova_data != data_sel:
+            st.session_state["data_agenda"] = nova_data
+            st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
