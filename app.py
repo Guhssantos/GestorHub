@@ -733,6 +733,147 @@ html,body{{background:transparent;padding:4px 0 6px}}
 # ══════════════════════════════════════════════════════════════════════════════
 # PÁGINA: INÍCIO
 # ══════════════════════════════════════════════════════════════════════════════
+def _render_mini_cal(data_sel):
+    """Calendário visual 100% nativo Streamlit — usa st.button para cada dia."""
+    import calendar as _cal
+    from datetime import date, timedelta
+
+    hoje = datetime.now(tz=TZ_SP).date()
+
+    # Estado do mês exibido no calendário
+    if "cal_view_y" not in st.session_state:
+        st.session_state["cal_view_y"] = data_sel.year
+    if "cal_view_m" not in st.session_state:
+        st.session_state["cal_view_m"] = data_sel.month
+
+    vy = st.session_state["cal_view_y"]
+    vm = st.session_state["cal_view_m"]
+
+    # CSS do mini-cal
+    st.markdown("""
+    <style>
+    .gh-card-cal{background:#fff;border:1px solid rgba(13,13,13,.09);
+                 border-radius:14px;overflow:hidden;margin-bottom:16px;}
+    .cal-header{display:flex;align-items:center;justify-content:space-between;
+                padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07);}
+    .cal-title{font-size:13px;font-weight:500;color:#0D0D0D;
+               font-family:'DM Sans',sans-serif;}
+    /* Botões de dia */
+    div[data-testid="stColumns"] button[kind="secondary"] {
+        background:transparent!important;border:none!important;
+        color:#0D0D0D!important;font-family:'DM Mono',monospace!important;
+        font-size:11px!important;padding:4px 2px!important;
+        border-radius:6px!important;width:100%!important;
+        min-height:28px!important;line-height:1!important;
+    }
+    div[data-testid="stColumns"] button[kind="secondary"]:hover {
+        background:#F5F3EF!important;
+    }
+    /* Botão nav mês */
+    .cal-nav-btn button {
+        background:transparent!important;border:none!important;
+        color:#8A8A8A!important;font-size:16px!important;
+        padding:2px 8px!important;border-radius:6px!important;
+        min-height:28px!important;
+    }
+    .cal-nav-btn button:hover {background:#F5F3EF!important;}
+    /* Esconder label de columns */
+    div[data-testid="stColumns"] > div { padding:1px!important; }
+    </style>
+    <div class="gh-card-cal">
+      <div class="cal-header"><span class="cal-title">Calendário</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Navegação de mês
+    prev_m = vm - 1 if vm > 1 else 12
+    prev_y = vy if vm > 1 else vy - 1
+    next_m = vm + 1 if vm < 12 else 1
+    next_y = vy if vm < 12 else vy + 1
+
+    nav_cols = st.columns([1, 3, 1])
+    with nav_cols[0]:
+        if st.button("‹", key="cal_prev", help="Mês anterior"):
+            st.session_state["cal_view_m"] = prev_m
+            st.session_state["cal_view_y"] = prev_y
+            st.rerun()
+    with nav_cols[1]:
+        st.markdown(
+            f"<p style='text-align:center;font-size:12px;font-weight:500;"
+            f"color:#0D0D0D;font-family:DM Sans,sans-serif;margin:4px 0'>"
+            f"{MESES_PT[vm-1]} {vy}</p>",
+            unsafe_allow_html=True
+        )
+    with nav_cols[2]:
+        if st.button("›", key="cal_next", help="Próximo mês"):
+            st.session_state["cal_view_m"] = next_m
+            st.session_state["cal_view_y"] = next_y
+            st.rerun()
+
+    # Cabeçalho dias da semana
+    dow_labels = ["D","S","T","Q","Q","S","S"]
+    dow_cols = st.columns(7)
+    for i, lbl in enumerate(dow_labels):
+        with dow_cols[i]:
+            st.markdown(
+                f"<p style='text-align:center;font-size:9px;font-weight:600;"
+                f"color:#AAAAAA;letter-spacing:.04em;margin:2px 0'>{lbl}</p>",
+                unsafe_allow_html=True
+            )
+
+    # Calcular primeiro dia do mês (0=seg..6=dom) → converter para dom=0
+    first_weekday = (date(vy, vm, 1).weekday() + 1) % 7  # 0=dom
+    days_in_month = _cal.monthrange(vy, vm)[1]
+
+    # Montar grade de 6 semanas × 7 dias
+    cells = [None] * first_weekday
+    for d in range(1, days_in_month + 1):
+        cells.append(date(vy, vm, d))
+    # Preencher até múltiplo de 7
+    while len(cells) % 7 != 0:
+        cells.append(None)
+
+    weeks = [cells[i:i+7] for i in range(0, len(cells), 7)]
+
+    for week in weeks:
+        week_cols = st.columns(7)
+        for ci, dt in enumerate(week):
+            with week_cols[ci]:
+                if dt is None:
+                    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                else:
+                    is_today = (dt == hoje)
+                    is_sel   = (dt == data_sel)
+                    # Estilo inline para hoje e selecionado
+                    if is_today:
+                        style = ("background:#0D0D0D!important;"
+                                 "color:#fff!important;border-radius:6px!important;")
+                    elif is_sel:
+                        style = ("background:#E8E5DF!important;"
+                                 "color:#0D0D0D!important;border-radius:6px!important;")
+                    else:
+                        style = ""
+
+                    btn_key = f"cal_day_{vy}_{vm}_{dt.day}"
+                    if style:
+                        st.markdown(
+                            f"<style>div[data-testid='stColumns'] "
+                            f"[data-testid='stButton'] button[aria-label='{dt.day}']"
+                            f"{{{style}}}</style>",
+                            unsafe_allow_html=True
+                        )
+                    clicked = st.button(
+                        str(dt.day),
+                        key=btn_key,
+                        help=dt.strftime("%d/%m/%Y"),
+                    )
+                    if clicked:
+                        st.session_state["data_agenda"] = dt
+                        st.session_state["cal_view_y"]  = vy
+                        st.session_state["cal_view_m"]  = vm
+                        st.rerun()
+
+
 def pagina_inicio():
     h = datetime.now(tz=TZ_SP).hour
     saudacao = "Bom dia" if h < 12 else "Boa tarde" if h < 18 else "Boa noite"
@@ -869,73 +1010,8 @@ def pagina_inicio():
           </div>
         </div>""", unsafe_allow_html=True)
 
-        # ── Calendário: usa st.date_input nativo (única forma garantida de funcionar
-        #    cross-origin no Streamlit Cloud). CSS personalizado para visual do mini-cal.
-        st.markdown("""
-        <style>
-        /* Wrapper do card calendário */
-        .cal-card-wrap { background:#fff; border:1px solid rgba(13,13,13,.09);
-                         border-radius:14px; overflow:hidden; margin-bottom:16px; }
-        .cal-card-wrap .card-hd { display:flex; align-items:center; padding:14px 20px;
-                                   border-bottom:1px solid rgba(13,13,13,.07); }
-        .cal-card-wrap .card-title { font-size:13px; font-weight:500; color:#0D0D0D;
-                                      font-family:'DM Sans',sans-serif; }
-        /* Esconde o label do date_input mas mantém o widget */
-        div[data-testid="stDateInput"] > label { display:none !important; }
-        /* Estiliza o container do date_input para parecer natural */
-        div[data-testid="stDateInput"] {
-            padding: 0 !important;
-        }
-        div[data-testid="stDateInput"] > div {
-            width: 100% !important;
-        }
-        /* Estiliza o input em si */
-        div[data-testid="stDateInput"] input {
-            font-family: 'DM Sans', sans-serif !important;
-            font-size: 13px !important;
-            border: none !important;
-            border-radius: 0 !important;
-            background: transparent !important;
-            color: #0D0D0D !important;
-            padding: 10px 20px !important;
-            box-shadow: none !important;
-        }
-        div[data-testid="stDateInput"] > div > div {
-            border: none !important;
-            border-radius: 0 !important;
-            background: transparent !important;
-        }
-        /* Popup do calendário nativo */
-        div[data-baseweb="calendar"] {
-            font-family: 'DM Sans', sans-serif !important;
-            border: 1px solid rgba(13,13,13,.09) !important;
-            border-radius: 10px !important;
-            overflow: hidden !important;
-        }
-        div[data-baseweb="calendar"] button {
-            font-family: 'DM Sans', sans-serif !important;
-        }
-        /* Dia selecionado */
-        div[data-baseweb="calendar"] [aria-selected="true"] div {
-            background: #0D0D0D !important;
-            border-radius: 50% !important;
-        }
-        </style>
-        <div class="cal-card-wrap">
-          <div class="card-hd"><span class="card-title">Calendário</span></div>
-        </div>
-        """, unsafe_allow_html=True)
-        # st.date_input nativo — quando o usuário muda, o Streamlit faz rerun automaticamente
-        nova_data = st.date_input(
-            "Selecionar data",
-            value=data_sel,
-            key="cal_date_picker",
-            label_visibility="collapsed",
-            format="DD/MM/YYYY",
-        )
-        if nova_data != data_sel:
-            st.session_state["data_agenda"] = nova_data
-            st.rerun()
+        # ── Calendário visual com st.button (100% nativo, funciona no Streamlit Cloud) ──
+        _render_mini_cal(data_sel)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
