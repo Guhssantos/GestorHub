@@ -734,13 +734,11 @@ html,body{{background:transparent;padding:4px 0 6px}}
 # PÁGINA: INÍCIO
 # ══════════════════════════════════════════════════════════════════════════════
 def _render_mini_cal(data_sel):
-    """Calendário visual 100% nativo Streamlit — usa st.button para cada dia."""
     import calendar as _cal
-    from datetime import date, timedelta
+    from datetime import date
 
     hoje = datetime.now(tz=TZ_SP).date()
 
-    # Estado do mês exibido no calendário
     if "cal_view_y" not in st.session_state:
         st.session_state["cal_view_y"] = data_sel.year
     if "cal_view_m" not in st.session_state:
@@ -749,125 +747,124 @@ def _render_mini_cal(data_sel):
     vy = st.session_state["cal_view_y"]
     vm = st.session_state["cal_view_m"]
 
-    # CSS do mini-cal
-    st.markdown("""
-    <style>
-    .gh-card-cal{background:#fff;border:1px solid rgba(13,13,13,.09);
-                 border-radius:14px;overflow:hidden;margin-bottom:16px;}
-    .cal-header{display:flex;align-items:center;justify-content:space-between;
-                padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07);}
-    .cal-title{font-size:13px;font-weight:500;color:#0D0D0D;
-               font-family:'DM Sans',sans-serif;}
-    /* Botões de dia */
-    div[data-testid="stColumns"] button[kind="secondary"] {
-        background:transparent!important;border:none!important;
-        color:#0D0D0D!important;font-family:'DM Mono',monospace!important;
-        font-size:11px!important;padding:4px 2px!important;
-        border-radius:6px!important;width:100%!important;
-        min-height:28px!important;line-height:1!important;
-    }
-    div[data-testid="stColumns"] button[kind="secondary"]:hover {
-        background:#F5F3EF!important;
-    }
-    /* Botão nav mês */
-    .cal-nav-btn button {
-        background:transparent!important;border:none!important;
-        color:#8A8A8A!important;font-size:16px!important;
-        padding:2px 8px!important;border-radius:6px!important;
-        min-height:28px!important;
-    }
-    .cal-nav-btn button:hover {background:#F5F3EF!important;}
-    /* Esconder label de columns */
-    div[data-testid="stColumns"] > div { padding:1px!important; }
-    </style>
-    <div class="gh-card-cal">
-      <div class="cal-header"><span class="cal-title">Calendário</span></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Navegação de mês
     prev_m = vm - 1 if vm > 1 else 12
     prev_y = vy if vm > 1 else vy - 1
     next_m = vm + 1 if vm < 12 else 1
     next_y = vy if vm < 12 else vy + 1
 
-    nav_cols = st.columns([1, 3, 1])
-    with nav_cols[0]:
-        if st.button("‹", key="cal_prev", help="Mês anterior"):
+    first_weekday = (date(vy, vm, 1).weekday() + 1) % 7
+    days_in_month = _cal.monthrange(vy, vm)[1]
+    cells = [None] * first_weekday
+    for d in range(1, days_in_month + 1):
+        cells.append(date(vy, vm, d))
+    while len(cells) % 7 != 0:
+        cells.append(None)
+    weeks = [cells[i:i+7] for i in range(0, len(cells), 7)]
+
+    # ── CSS: esconde aparência nativa dos botões, deixa só a área clicável ──
+    st.markdown("""
+    <style>
+    /* Card wrapper */
+    .mcal-wrap{background:#fff;border:1px solid rgba(13,13,13,.09);
+               border-radius:14px;overflow:hidden;margin-bottom:16px;padding-bottom:12px;}
+    .mcal-head{display:flex;align-items:center;justify-content:space-between;
+               padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07);margin-bottom:8px;}
+    .mcal-title{font-size:13px;font-weight:500;color:#0D0D0D;font-family:'DM Sans',sans-serif;}
+    .mcal-month{font-size:12px;font-weight:500;color:#0D0D0D;font-family:'DM Sans',sans-serif;
+                text-align:center;}
+    .mcal-dow{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;
+              letter-spacing:.04em;text-transform:uppercase;padding:2px 0;
+              font-family:'DM Sans',sans-serif;}
+    .mcal-day{font-size:11px;font-family:'DM Mono',monospace;text-align:center;
+              padding:5px 2px;border-radius:6px;color:#0D0D0D;cursor:pointer;
+              min-height:26px;display:flex;align-items:center;justify-content:center;}
+    .mcal-day:hover{background:#F5F3EF;}
+    .mcal-today{background:#0D0D0D!important;color:#fff!important;border-radius:6px;}
+    .mcal-sel{background:#E8E5DF!important;color:#0D0D0D!important;border-radius:6px;}
+    .mcal-empty{min-height:26px;}
+
+    /* Botões Streamlit: completamente invisíveis mas clicáveis */
+    div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stButton"] button,
+    div[data-testid="stColumn"] > div > div[data-testid="stButton"] button {
+        opacity: 0 !important;
+        position: absolute !important;
+        top: 0 !important; left: 0 !important;
+        width: 100% !important; height: 100% !important;
+        padding: 0 !important; margin: 0 !important;
+        cursor: pointer !important;
+        z-index: 10 !important;
+        min-height: unset !important;
+        border: none !important;
+    }
+    /* Container relativo para sobreposição */
+    div[data-testid="stColumn"] {
+        position: relative !important;
+        padding: 1px !important;
+    }
+    div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] {
+        position: relative !important;
+    }
+    div[data-testid="stColumn"] > div > div[data-testid="stButton"] {
+        position: absolute !important;
+        top: 0 !important; left: 0 !important;
+        width: 100% !important; height: 100% !important;
+        z-index: 10 !important;
+    }
+    /* Remove padding extra do streamlit em columns */
+    div[data-testid="stHorizontalBlock"] { gap: 0 !important; }
+    div[data-testid="stColumn"] { min-width: 0 !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── Card header ──
+    st.markdown(f"""
+    <div class="mcal-wrap">
+      <div class="mcal-head">
+        <span class="mcal-title">Calendário</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Navegação mês ──
+    nav_c = st.columns([1, 5, 1])
+    with nav_c[0]:
+        st.markdown('<div class="mcal-day" style="color:#8A8A8A;font-size:18px;">‹</div>', unsafe_allow_html=True)
+        if st.button("‹", key="cal_prev"):
             st.session_state["cal_view_m"] = prev_m
             st.session_state["cal_view_y"] = prev_y
             st.rerun()
-    with nav_cols[1]:
-        st.markdown(
-            f"<p style='text-align:center;font-size:12px;font-weight:500;"
-            f"color:#0D0D0D;font-family:DM Sans,sans-serif;margin:4px 0'>"
-            f"{MESES_PT[vm-1]} {vy}</p>",
-            unsafe_allow_html=True
-        )
-    with nav_cols[2]:
-        if st.button("›", key="cal_next", help="Próximo mês"):
+    with nav_c[1]:
+        st.markdown(f'<div class="mcal-month">{MESES_PT[vm-1]} {vy}</div>', unsafe_allow_html=True)
+    with nav_c[2]:
+        st.markdown('<div class="mcal-day" style="color:#8A8A8A;font-size:18px;">›</div>', unsafe_allow_html=True)
+        if st.button("›", key="cal_next"):
             st.session_state["cal_view_m"] = next_m
             st.session_state["cal_view_y"] = next_y
             st.rerun()
 
-    # Cabeçalho dias da semana
-    dow_labels = ["D","S","T","Q","Q","S","S"]
+    # ── Dias da semana ──
     dow_cols = st.columns(7)
-    for i, lbl in enumerate(dow_labels):
+    for i, lbl in enumerate(["D","S","T","Q","Q","S","S"]):
         with dow_cols[i]:
-            st.markdown(
-                f"<p style='text-align:center;font-size:9px;font-weight:600;"
-                f"color:#AAAAAA;letter-spacing:.04em;margin:2px 0'>{lbl}</p>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f'<div class="mcal-dow">{lbl}</div>', unsafe_allow_html=True)
 
-    # Calcular primeiro dia do mês (0=seg..6=dom) → converter para dom=0
-    first_weekday = (date(vy, vm, 1).weekday() + 1) % 7  # 0=dom
-    days_in_month = _cal.monthrange(vy, vm)[1]
-
-    # Montar grade de 6 semanas × 7 dias
-    cells = [None] * first_weekday
-    for d in range(1, days_in_month + 1):
-        cells.append(date(vy, vm, d))
-    # Preencher até múltiplo de 7
-    while len(cells) % 7 != 0:
-        cells.append(None)
-
-    weeks = [cells[i:i+7] for i in range(0, len(cells), 7)]
-
+    # ── Grade de dias ──
     for week in weeks:
-        week_cols = st.columns(7)
+        wc = st.columns(7)
         for ci, dt in enumerate(week):
-            with week_cols[ci]:
+            with wc[ci]:
                 if dt is None:
-                    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                    st.markdown('<div class="mcal-empty"></div>', unsafe_allow_html=True)
                 else:
                     is_today = (dt == hoje)
                     is_sel   = (dt == data_sel)
-                    # Estilo inline para hoje e selecionado
-                    if is_today:
-                        style = ("background:#0D0D0D!important;"
-                                 "color:#fff!important;border-radius:6px!important;")
-                    elif is_sel:
-                        style = ("background:#E8E5DF!important;"
-                                 "color:#0D0D0D!important;border-radius:6px!important;")
-                    else:
-                        style = ""
-
-                    btn_key = f"cal_day_{vy}_{vm}_{dt.day}"
-                    if style:
-                        st.markdown(
-                            f"<style>div[data-testid='stColumns'] "
-                            f"[data-testid='stButton'] button[aria-label='{dt.day}']"
-                            f"{{{style}}}</style>",
-                            unsafe_allow_html=True
-                        )
-                    clicked = st.button(
-                        str(dt.day),
-                        key=btn_key,
-                        help=dt.strftime("%d/%m/%Y"),
-                    )
-                    if clicked:
+                    cls = "mcal-day"
+                    if is_today: cls += " mcal-today"
+                    elif is_sel: cls += " mcal-sel"
+                    # HTML visual
+                    st.markdown(f'<div class="{cls}">{dt.day}</div>', unsafe_allow_html=True)
+                    # Botão invisível sobreposto
+                    if st.button(" ", key=f"cd_{vy}_{vm}_{dt.day}"):
                         st.session_state["data_agenda"] = dt
                         st.session_state["cal_view_y"]  = vy
                         st.session_state["cal_view_m"]  = vm
