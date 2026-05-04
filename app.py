@@ -570,6 +570,20 @@ with st.sidebar:
 # ── MOBILE BOTTOM NAV ─────────────────────────────────────────────────────────
 _mob_active = {"🏠  Início": 0, "🎥  Resumos tl;dv": 1, "📊  Chamados": 2}.get(opcao, 0)
 _mob_nav_items = [("🏠", "Início", "inicio"), ("🎥", "Resumos", "resumos"), ("📊", "Chamados", "chamados")]
+
+# Hidden Streamlit buttons that the mobile nav triggers via click simulation
+_mob_pg_map = {"inicio": "🏠  Início", "resumos": "🎥  Resumos tl;dv", "chamados": "📊  Chamados"}
+
+# Check if a mobile nav button was pressed via query param set by JS
+_mob_nav_target = st.query_params.get("mob_nav", "")
+if _mob_nav_target and _mob_nav_target in _mob_pg_map:
+    # Map to selectbox value and clear the param
+    _new_page_label = _mob_pg_map[_mob_nav_target]
+    _page_index = {"🏠  Início": 0, "🎥  Resumos tl;dv": 1, "📊  Chamados": 2}[_new_page_label]
+    st.query_params.clear()
+    st.query_params["page"] = _mob_nav_target
+    st.rerun()
+
 _mob_btns = ""
 for _i, (_ico, _lbl, _pg_key) in enumerate(_mob_nav_items):
     _cls = "mob-nav-btn active" if _i == _mob_active else "mob-nav-btn"
@@ -581,12 +595,20 @@ st.markdown(f"""
 </div>
 <script>
 function mobNav(page){{
-  try{{
-    var url=new URL(window.parent.location.href);
-    url.searchParams.set("page",page);
-    window.parent.location.href=url.toString();
-  }}catch(e){{
-    window.location.href="?page="+page;
+  // Update query param and reload — works in both iframe and top-level contexts
+  var target = window.top || window.parent || window;
+  try {{
+    var url = new URL(target.location.href);
+    url.searchParams.set("page", page);
+    // Remove stale mob_nav param if present
+    url.searchParams.delete("mob_nav");
+    target.location.href = url.toString();
+  }} catch(e) {{
+    try {{
+      window.parent.location.href = "?page=" + page;
+    }} catch(e2) {{
+      window.location.href = "?page=" + page;
+    }}
   }}
 }}
 </script>
@@ -680,122 +702,23 @@ html,body{{background:transparent;padding:4px 0 6px}}
 .bar{{display:flex;align-items:center;gap:10px;position:relative}}
 .cal-btn{{background:#FFF;border:1px solid rgba(13,13,13,.10);border-radius:8px;
   padding:7px 14px 7px 10px;display:inline-flex;align-items:center;gap:8px;
-  cursor:pointer;font-size:13px;font-weight:500;color:#0D0D0D;user-select:none;transition:background .12s}}
-.cal-btn:hover{{background:#F5F3EF}}
+  font-size:13px;font-weight:500;color:#0D0D0D;user-select:none;cursor:default}}
 .sync-btn{{width:32px;height:32px;border-radius:7px;background:#FFF;
   border:1px solid rgba(13,13,13,.10);cursor:pointer;font-size:17px;
   display:inline-flex;align-items:center;justify-content:center;color:#8A8A8A;transition:background .12s}}
 .sync-btn:hover{{background:#F5F3EF;color:#0D0D0D}}
 @keyframes spin{{to{{transform:rotate(360deg)}}}}
 .spinning{{animation:spin .5s linear}}
-#popup{{display:none;position:absolute;top:46px;left:0;z-index:999999;
-  background:#FFF;border-radius:12px;width:270px;padding:16px;
-  box-shadow:0 8px 40px rgba(0,0,0,.13);border:1px solid rgba(13,13,13,.08)}}
-.ph{{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}}
-.ph-title{{font-size:13px;font-weight:500;color:#0D0D0D}}
-.nb{{background:none;border:none;cursor:pointer;font-size:22px;color:#8A8A8A;padding:0 8px;line-height:1}}
-.nb:hover{{color:#0D0D0D}}
-.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}}
-.dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-transform:uppercase;padding:3px 0;letter-spacing:.04em}}
-.day{{font-size:11px;font-family:'DM Mono',monospace;color:#0D0D0D;padding:6px 2px;
-  border-radius:5px;cursor:pointer;border:none;background:none;width:100%}}
-.day:hover{{background:#F5F3EF}}
-.today{{background:#0D0D0D!important;color:#FFF!important}}
-.sel:not(.today){{background:#E8E5DF!important}}
-.out{{color:rgba(13,13,13,.18)!important;pointer-events:none!important}}
 .dot{{width:5px;height:5px;border-radius:50%;background:#1C6C4E;display:inline-block}}
 </style></head><body>
 <div class="bar">
-  <div class="cal-btn" id="tog" onclick="toggleCal()">
+  <div class="cal-btn" id="tog">
     <span class="dot"></span><span id="lbl">{label}</span>
   </div>
   <button class="sync-btn" id="sbtn" onclick="doSync()">&#8635;</button>
 </div>
-<div id="popup">
-  <div class="ph">
-    <button class="nb" onclick="chgMonth(-1)">&#8249;</button>
-    <span class="ph-title" id="mlbl"></span>
-    <button class="nb" onclick="chgMonth(1)">&#8250;</button>
-  </div>
-  <div class="grid">
-    <div class="dow">D</div><div class="dow">S</div><div class="dow">T</div>
-    <div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div>
-  </div>
-  <div class="grid" id="days"></div>
-</div>
 <script>
 (function(){{
-  var M=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-  var MS=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  var hoje=new Date("{hoje_iso}T12:00:00");
-  var sel=new Date("{sel_iso}T12:00:00");
-  var cur=new Date(sel.getFullYear(),sel.getMonth(),1);
-  var open=false;
-  function pad(n){{return n<10?"0"+n:n}}
-  function iso(d){{return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
-  function resize(h,z){{
-    try{{
-      var fr=window.parent.document.querySelectorAll("iframe");
-      for(var i=0;i<fr.length;i++){{
-        if(fr[i].contentWindow===window){{
-          fr[i].height=h;fr[i].style.height=h+"px";fr[i].style.minHeight=h+"px";
-          var c=fr[i].closest('div[data-testid="element-container"]');
-          if(c){{c.style.position="relative";c.style.zIndex=z?"99999":"1";}}
-          var p=fr[i].parentElement;
-          while(p&&p.tagName!=="BODY"){{p.style.overflow="visible";p=p.parentElement;}}
-          break;
-        }}
-      }}
-    }}catch(e){{}}
-  }}
-  function render(){{
-    var y=cur.getFullYear(),m=cur.getMonth();
-    document.getElementById("mlbl").textContent=M[m]+" "+y;
-    var g=document.getElementById("days");g.innerHTML="";
-    var first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
-    for(var i=0;i<first;i++) mk(g,"",true,null,false,false);
-    for(var d=1;d<=days;d++){{
-      var dt=new Date(y,m,d);
-      mk(g,d,false,dt,iso(dt)===iso(hoje),iso(dt)===iso(sel));
-    }}
-    var rem=(first+days)%7;
-    if(rem) for(var i=1;i<=7-rem;i++) mk(g,"",true,null,false,false);
-  }}
-  function mk(g,txt,out,dt,isT,isS){{
-    var b=document.createElement("button");
-    b.className="day"+(out?" out":"")+(isS?" sel":"")+(isT?" today":"");
-    b.textContent=txt;
-    if(dt){{(function(d){{b.onclick=function(){{pick(d)}};}})(dt);}}
-    g.appendChild(b);
-  }}
-  function pick(dt){{
-    sel=dt;var s=iso(dt);
-    document.getElementById("lbl").textContent=(s===iso(hoje))?"Hoje":dt.getDate()+" "+MS[dt.getMonth()]+" "+dt.getFullYear();
-    closePopup();send(s);
-  }}
-  function send(s){{
-    var p=s.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
-    var docs=[];
-    try{{docs.push(window.parent.document)}}catch(e){{}}
-    try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-    for(var i=0;i<docs.length;i++){{
-      var inp=docs[i].querySelector('[data-testid="stDateInput"] input');
-      if(inp){{
-        var sv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
-        sv.set.call(inp,fmt);
-        inp.dispatchEvent(new Event("input",{{bubbles:true}}));
-        inp.dispatchEvent(new Event("change",{{bubbles:true}}));
-        return;
-      }}
-    }}
-  }}
-  window.toggleCal=function(){{
-    open=!open;var p=document.getElementById("popup");
-    if(open){{cur=new Date(sel.getFullYear(),sel.getMonth(),1);render();p.style.display="block";resize(420,true);}}
-    else closePopup();
-  }};
-  window.chgMonth=function(d){{cur.setMonth(cur.getMonth()+d);render();}};
-  function closePopup(){{open=false;document.getElementById("popup").style.display="none";resize(52,false);}}
   window.doSync=function(){{
     var b=document.getElementById("sbtn");b.classList.add("spinning");
     setTimeout(function(){{b.classList.remove("spinning");}},500);
@@ -806,12 +729,6 @@ html,body{{background:transparent;padding:4px 0 6px}}
       if(inp){{inp.dispatchEvent(new Event("input",{{bubbles:true}}));inp.dispatchEvent(new Event("change",{{bubbles:true}}));return;}}
     }}
   }};
-  document.addEventListener("click",function(e){{
-    if(!open)return;
-    var p=document.getElementById("popup"),t=document.getElementById("tog");
-    if(p&&t&&!p.contains(e.target)&&!t.contains(e.target))closePopup();
-  }});
-  resize(52,false);
 }})();
 </script>
 </body></html>"""
