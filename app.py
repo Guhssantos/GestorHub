@@ -323,7 +323,6 @@ ul[data-baseweb="menu"] li:hover { background:#2A2A2A !important; }
 div[data-testid="stHtml"] { overflow:visible !important; }
 
 /* ── MOBILE BOTTOM NAV ── */
-
 @media (max-width: 768px) {
   [data-testid="stSidebar"] { display: none !important; }
   [data-testid="stMainBlockContainer"] { padding-bottom: 80px !important; }
@@ -357,37 +356,6 @@ div[data-testid="stHtml"] { overflow:visible !important; }
   .mobile-nav { display: none !important; }
 }
 </style>
-""", unsafe_allow_html=True)
-
-# ── postMessage listener: recebe eventos dos iframes (calendário e nav mobile) ──
-st.markdown("""
-<script>
-(function(){
-  if(window._gh_listener) return;
-  window._gh_listener = true;
-  window.addEventListener("message", function(e){
-    var d = e.data;
-    if(!d || typeof d !== "object") return;
-    if(d.type === "gh_date_pick" && d.iso){
-      var p = d.iso.split("-");
-      var fmt = p[1]+"/"+p[2]+"/"+p[0];
-      var inp = document.querySelector('[data-testid="stDateInput"] input');
-      if(inp){
-        var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
-        desc.set.call(inp, fmt);
-        inp.dispatchEvent(new Event("input",{bubbles:true}));
-        inp.dispatchEvent(new Event("change",{bubbles:true}));
-      }
-    }
-    if(d.type === "gh_mob_nav" && d.page){
-      var url = new URL(window.location.href);
-      url.searchParams.set("page", d.page);
-      url.searchParams.delete("mob_nav");
-      window.location.href = url.toString();
-    }
-  });
-})();
-</script>
 """, unsafe_allow_html=True)
 
 
@@ -627,13 +595,39 @@ st.markdown(f"""
 </div>
 <script>
 function mobNav(page){{
-  try {{
-    window.parent.postMessage({{type:"gh_mob_nav",page:page}}, "*");
-  }} catch(e) {{}}
-  try {{
-    window.location.href = "?page=" + page;
-  }} catch(e2) {{}}
+  // Tenta postMessage para o contexto pai (sem restrição cross-origin)
+  try{{window.parent.postMessage({{type:"gh_nav",page:page}},"*");}}catch(e){{}}
+  try{{window.top.postMessage({{type:"gh_nav",page:page}},"*");}}catch(e){{}}
+  // Fallback direto neste contexto
+  try{{
+    var u=new URL(window.location.href);
+    u.searchParams.set("page",page);
+    window.location.href=u.toString();
+  }}catch(e2){{window.location.href="?page="+page;}}
 }}
+// Listener para receber postMessage do iframe do calendário
+window.addEventListener("message",function(e){{
+  if(!e.data||typeof e.data!=="object")return;
+  // Calendário: data selecionada
+  if(e.data.type==="gh_pick"&&e.data.iso){{
+    var p=e.data.iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
+    var inp=document.querySelector('[data-testid="stDateInput"] input');
+    if(inp){{
+      var dsc=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
+      dsc.set.call(inp,fmt);
+      inp.dispatchEvent(new Event("input",{{bubbles:true}}));
+      inp.dispatchEvent(new Event("change",{{bubbles:true}}));
+    }}
+  }}
+  // Navegação mobile vinda de iframe interno
+  if(e.data.type==="gh_nav"&&e.data.page){{
+    try{{
+      var u=new URL(window.location.href);
+      u.searchParams.set("page",e.data.page);
+      window.location.href=u.toString();
+    }}catch(ex){{window.location.href="?page="+e.data.page;}}
+  }}
+}},false);
 </script>
 """, unsafe_allow_html=True)
 
@@ -658,64 +652,56 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date) -> str:
-    """Self-contained mini-calendar: JS handles month navigation, postMessage sends picked date."""
-    hoje  = datetime.now(tz=TZ_SP).date()
-    hoje_iso = hoje.isoformat()
+    """Calendário mini totalmente auto-contido: JS gerencia navegação de meses,
+    postMessage envia a data selecionada para o Streamlit pai."""
+    hoje_iso = datetime.now(tz=TZ_SP).date().isoformat()
     sel_iso  = data_sel.isoformat()
     meses_js = str(MESES_PT).replace("'", '"')
+    return f"""<div id="mc"></div>
+<script>
+(function(){{
+  var MESES={meses_js};
+  var HOJE="{hoje_iso}", SEL="{sel_iso}";
+  var hY=+HOJE.slice(0,4), hM=+HOJE.slice(5,7)-1, hD=+HOJE.slice(8,10);
+  var sY=+SEL.slice(0,4),  sM=+SEL.slice(5,7)-1,  sD=+SEL.slice(8,10);
+  var cy=sY, cm=sM;
 
-    return f"""
-    <div class="mini-cal" id="mc-wrap"></div>
-    <script>
-    (function(){{
-      var MESES = {meses_js};
-      var hoje  = new Date("{hoje_iso}T00:00:00");
-      var sel   = new Date("{sel_iso}T00:00:00");
-      var cy = sel.getFullYear(), cm = sel.getMonth(); // 0-indexed
+  function z(n){{return n<10?"0"+n:""+n;}}
+  function iso(y,m,d){{return y+"-"+z(m+1)+"-"+z(d);}}
 
-      function isoOf(y,m,d){{
-        return y+"-"+(m+1<10?"0"+(m+1):m+1)+"-"+(d<10?"0"+d:d);
-      }}
-      function render(){{
-        var first = new Date(cy, cm, 1).getDay(); // 0=Sun
-        var last  = new Date(cy, cm+1, 0).getDate();
-        var py = cm===0?cy-1:cy, pm = cm===0?11:cm-1;
-        var ny = cm===11?cy+1:cy, nm = cm===11?0:cm+1;
-        var prevIso = isoOf(py,pm,1);
-        var nextIso = isoOf(ny,nm,1);
+  function render(){{
+    var first=new Date(cy,cm,1).getDay();
+    var days=new Date(cy,cm+1,0).getDate();
+    var py=cm===0?cy-1:cy, pm=cm===0?11:cm-1;
+    var ny=cm===11?cy+1:cy, nm=cm===11?0:cm+1;
+    var h="";
+    h+='<div class="mcal-nav">';
+    h+='<span class="nav-arr" onclick="navM('+py+','+(pm)+')" tabindex="0">&#8249;</span>';
+    h+='<span class="mcal-mon">'+MESES[cm]+' '+cy+'</span>';
+    h+='<span class="nav-arr" onclick="navM('+ny+','+(nm)+')" tabindex="0">&#8250;</span>';
+    h+='</div><div class="cal-grid">';
+    h+='<div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>';
+    for(var i=0;i<first;i++) h+='<div class="cal-day out"></div>';
+    for(var d=1;d<=days;d++){{
+      var isoStr=iso(cy,cm,d);
+      var isH=(cy===hY&&cm===hM&&d===hD);
+      var isS=(cy===sY&&cm===sM&&d===sD);
+      var cls="cal-day"+(isH?" today":isS?" sel":"");
+      h+='<div class="'+cls+'" tabindex="0" onclick="pick(''+isoStr+'')">'+d+'</div>';
+    }}
+    h+='</div>';
+    document.getElementById("mc").innerHTML=h;
+  }}
 
-        var html = '<div class="mcal-nav">';
-        html += '<span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;" onclick="navM(\''+prevIso+'\')">&#8249;</span>';
-        html += '<span class="mcal-mon">'+MESES[cm]+' '+cy+'</span>';
-        html += '<span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;" onclick="navM(\''+nextIso+'\')">&#8250;</span>';
-        html += '</div><div class="cal-grid">';
-        html += '<div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>';
+  window.navM=function(y,m){{cy=+y;cm=+m;render();}};
+  window.pick=function(isoStr){{
+    try{{window.parent.postMessage({{type:"gh_pick",iso:isoStr}},"*");}}catch(e){{}}
+    try{{window.top.postMessage({{type:"gh_pick",iso:isoStr}},"*");}}catch(e){{}}
+  }};
 
-        for(var i=0;i<first;i++) html += '<div class="cal-day out"></div>';
-        for(var d=1;d<=last;d++){{
-          var iso = isoOf(cy,cm,d);
-          var isHoje = (iso==="{hoje_iso}");
-          var isSel  = (iso==="{sel_iso}");
-          var cls = "cal-day"+(isHoje?" today":isSel?" sel":"");
-          html += '<div class="'+cls+'" style="cursor:pointer" onclick="pickD(\''+iso+'\')">'+ d +'</div>';
-        }}
-        html += '</div>';
-        document.getElementById("mc-wrap").innerHTML = html;
-      }}
-
-      window.navM = function(iso){{
-        var parts = iso.split("-");
-        cy = parseInt(parts[0]); cm = parseInt(parts[1])-1;
-        render();
-      }};
-      window.pickD = function(iso){{
-        try{{ window.parent.postMessage({{type:"gh_date_pick",iso:iso}},"*"); }}catch(e){{}}
-        try{{ window.top.postMessage({{type:"gh_date_pick",iso:iso}},"*"); }}catch(e){{}}
-      }};
-
-      render();
-    }})();
-    </script>"""
+  render();
+}})();
+</script>"""
 
 
 def _calendar_widget(label: str, hoje_iso: str, sel_iso: str) -> str:
@@ -911,8 +897,10 @@ def pagina_inicio():
             .cal-day.today{{background:#0D0D0D;color:#fff}}
             .cal-day.sel:not(.today){{background:#E8E5DF}}
             .cal-day.out{{color:rgba(13,13,13,.18);pointer-events:none}}
+            .nav-arr{{font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;user-select:none;}}
+            .nav-arr:hover{{color:#0D0D0D}}
             </style></head><body>{cal_inner}</body></html>""",
-            height=240, scrolling=False
+            height=260, scrolling=False
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
