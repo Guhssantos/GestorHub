@@ -254,6 +254,35 @@ div[data-testid="stDateInput"] {
 .cal-day.sel:not(.today) { background:#E8E5DF; }
 .cal-day.out  { color:rgba(13,13,13,.18); }
 
+/* DAY PULSE TIMELINE */
+.dp-tl-wrap { padding:0 20px 14px; display:flex; flex-direction:column; gap:4px; }
+.dp-tl-hd   { font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
+               color:#8A8A8A; margin-bottom:6px; margin-top:2px; }
+.dp-blk     { display:flex; align-items:stretch; gap:10px; border-radius:8px;
+               padding:8px 10px; transition:background .1s; }
+.dp-blk-busy { background:#F0F3F8; }
+.dp-blk-free { background:#F0F7F4; }
+.dp-blk:hover { filter:brightness(.97); }
+.dp-tms     { display:flex; flex-direction:column; align-items:flex-end;
+               width:38px; flex-shrink:0; gap:2px; padding-top:1px; }
+.dp-t       { font-family:'DM Mono',monospace; font-size:9.5px; color:#8A8A8A; line-height:1; }
+.dp-t-free  { color:#AAAAAA; }
+.dp-sep     { flex:1; width:1px; background:rgba(13,13,13,.10); align-self:center;
+               min-height:10px; margin:2px 0; }
+.dp-sep-free{ background:rgba(13,13,13,.06); }
+.dp-bar     { width:3px; border-radius:2px; flex-shrink:0; align-self:stretch; min-height:32px; }
+.dp-bar-busy{ background:#1A4F8A; }
+.dp-bar-free{ background:#1C6C4E; opacity:.4; }
+.dp-body    { flex:1; min-width:0; display:flex; flex-direction:column;
+               justify-content:center; gap:2px; }
+.dp-tag     { display:inline-flex; align-items:center; font-size:9px; font-weight:600;
+               letter-spacing:.05em; text-transform:uppercase; padding:2px 6px;
+               border-radius:4px; width:fit-content; }
+.dp-tag-busy{ background:#D8E4F2; color:#1A4F8A; }
+.dp-tag-free{ background:#C8E8DC; color:#1C6C4E; }
+.dp-title   { font-size:11.5px; font-weight:500; color:#0D0D0D;
+               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
 /* POWER BI */
 .pbi-wrap  { background:#fff; border:1px solid rgba(13,13,13,.09);
              border-radius:14px; padding:4px; overflow:hidden; }
@@ -1020,6 +1049,91 @@ def pagina_inicio():
         else:
             bar_color = "#B83232"   # vermelho
 
+        # ── Linha do tempo para o Day Pulse ─────────────────────────────────
+        def _dp_fmt_dur(a, b):
+            d = int((b - a).total_seconds() / 60)
+            if d <= 0: return ""
+            h2, m2 = divmod(d, 60)
+            if h2 == 0:  return f"{m2}min"
+            if m2 == 0:  return f"{h2}h"
+            return f"{h2}h{m2:02d}"
+
+        _dp_timeline = []
+        _dp_cursor = WIN_START
+        for s, e in merged:
+            if s > _dp_cursor:
+                _dp_timeline.append({"type": "livre",
+                                     "hi": _dp_cursor.strftime("%H:%M"),
+                                     "hf": s.strftime("%H:%M"),
+                                     "dur": _dp_fmt_dur(_dp_cursor, s),
+                                     "subject": ""})
+            _dp_timeline.append({"type": "ocupado",
+                                  "hi": s.strftime("%H:%M"),
+                                  "hf": e.strftime("%H:%M"),
+                                  "dur": _dp_fmt_dur(s, e),
+                                  "subject": ""})
+            _dp_cursor = e
+        if _dp_cursor < WIN_END:
+            _dp_timeline.append({"type": "livre",
+                                  "hi": _dp_cursor.strftime("%H:%M"),
+                                  "hf": WIN_END.strftime("%H:%M"),
+                                  "dur": _dp_fmt_dur(_dp_cursor, WIN_END),
+                                  "subject": ""})
+
+        # Enriquecer blocos "ocupado" com o subject do evento correspondente
+        _busy_blocks = [blk for blk in _dp_timeline if blk["type"] == "ocupado"]
+        _busy_idx = 0
+        for blk in _dp_timeline:
+            if blk["type"] != "ocupado":
+                continue
+            for ev in eventos:
+                if ev.get("_allday"): continue
+                try:
+                    _s = pd.to_datetime(ev["start"]["dateTime"])
+                    if _s.tzinfo is None: _s = _s.tz_localize("UTC")
+                    _s = _s.tz_convert(TZ_SP)
+                    if max(_s, WIN_START).strftime("%H:%M") == blk["hi"]:
+                        blk["subject"] = str(ev.get("subject") or "Reunião")
+                        break
+                except Exception:
+                    pass
+            if not blk["subject"]:
+                blk["subject"] = "Reunião"
+
+        # Gerar HTML dos blocos do Day Pulse timeline
+        _dp_rows = ""
+        for blk in _dp_timeline:
+            if blk["type"] == "ocupado":
+                _subj_safe = html_lib.escape(blk["subject"])
+                _dp_rows += f"""
+                <div class="dp-blk dp-blk-busy">
+                  <div class="dp-tms">
+                    <div class="dp-t">{blk["hi"]}</div>
+                    <div class="dp-sep"></div>
+                    <div class="dp-t">{blk["hf"]}</div>
+                  </div>
+                  <div class="dp-bar dp-bar-busy"></div>
+                  <div class="dp-body">
+                    <div class="dp-tag dp-tag-busy">Reunião · {blk["dur"]}</div>
+                    <div class="dp-title">{_subj_safe}</div>
+                  </div>
+                </div>"""
+            else:
+                _dp_rows += f"""
+                <div class="dp-blk dp-blk-free">
+                  <div class="dp-tms">
+                    <div class="dp-t dp-t-free">{blk["hi"]}</div>
+                    <div class="dp-sep dp-sep-free"></div>
+                    <div class="dp-t dp-t-free">{blk["hf"]}</div>
+                  </div>
+                  <div class="dp-bar dp-bar-free"></div>
+                  <div class="dp-body">
+                    <div class="dp-tag dp-tag-free">Disponível · {blk["dur"]}</div>
+                  </div>
+                </div>"""
+
+        _dp_rows_or_empty = _dp_rows if _dp_rows else '<div style="padding:12px;font-size:12px;color:#8A8A8A;text-align:center;">Dia livre 🎉</div>'
+
         st.markdown(f"""
         <div class="gh-card">
           <div class="card-hd"><span class="card-title">Day Pulse</span><span class="card-meta">Resumo do dia</span></div>
@@ -1033,13 +1147,9 @@ def pagina_inicio():
             <div class="prog-lbl"><span>Ocupação</span><span>{pct}%</span></div>
             <div class="prog-track"><div class="prog-fill" style="width:{pct}%;background:{bar_color}"></div></div>
           </div>
-          <div style="padding:0 20px 14px;display:flex;flex-direction:column;gap:6px;">
-            <div style="font-size:11px;color:#8A8A8A;">
-              <span style="font-weight:500;color:#0D0D0D;">Próximo livre:</span> {prox_txt}
-            </div>
-            <div style="font-size:11px;color:#8A8A8A;">
-              <span style="font-weight:500;color:#0D0D0D;">Maior intervalo:</span> {maior_txt}
-            </div>
+          <div class="dp-tl-wrap">
+            <div class="dp-tl-hd">Linha do tempo · 08:00 – 18:48</div>
+            {_dp_rows_or_empty}
           </div>
         </div>""", unsafe_allow_html=True)
 
