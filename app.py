@@ -595,27 +595,22 @@ st.markdown(f"""
 </div>
 <script>
 function mobNav(page){{
-  // Tenta postMessage para o contexto pai (sem restrição cross-origin)
-  try{{window.parent.postMessage({{type:"gh_nav",page:page}},"*");}}catch(e){{}}
-  try{{window.top.postMessage({{type:"gh_nav",page:page}},"*");}}catch(e){{}}
-  // Fallback direto neste contexto
-  try{{
-    var u=new URL(window.location.href);
-    u.searchParams.set("page",page);
-    window.location.href=u.toString();
-  }}catch(e2){{window.location.href="?page="+page;}}
-}}
-// Listener para navegação mobile vinda de iframe interno
-window.addEventListener("message",function(e){{
-  if(!e.data||typeof e.data!=="object")return;
-  if(e.data.type==="gh_nav"&&e.data.page){{
-    try{{
-      var u=new URL(window.location.href);
-      u.searchParams.set("page",e.data.page);
-      window.location.href=u.toString();
-    }}catch(ex){{window.location.href="?page="+e.data.page;}}
+  // Update query param and reload — works in both iframe and top-level contexts
+  var target = window.top || window.parent || window;
+  try {{
+    var url = new URL(target.location.href);
+    url.searchParams.set("page", page);
+    // Remove stale mob_nav param if present
+    url.searchParams.delete("mob_nav");
+    target.location.href = url.toString();
+  }} catch(e) {{
+    try {{
+      window.parent.location.href = "?page=" + page;
+    }} catch(e2) {{
+      window.location.href = "?page=" + page;
+    }}
   }}
-}},false);
+}}
 </script>
 """, unsafe_allow_html=True)
 
@@ -640,52 +635,61 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date) -> str:
-    hoje_iso = datetime.now(tz=TZ_SP).date().isoformat()
-    sel_iso  = data_sel.isoformat()
-    meses_js = '["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]'
-    # Monta o HTML+JS como string pura (sem f-string no JS para evitar conflito de chaves/aspas)
-    html = '<div id="ghcal"></div>\n'
-    html += '<script>\n'
-    html += '(function(){\n'
-    html += '  var MESES=' + meses_js + ';\n'
-    html += '  var HOJE="' + hoje_iso + '", SEL="' + sel_iso + '";\n'
-    html += '  var hY=+HOJE.slice(0,4),hM=+HOJE.slice(5,7)-1,hD=+HOJE.slice(8,10);\n'
-    html += '  var sY=+SEL.slice(0,4), sM=+SEL.slice(5,7)-1, sD=+SEL.slice(8,10);\n'
-    html += '  var cy=sY,cm=sM;\n'
-    html += '  function z(n){return n<10?"0"+n:""+n;}\n'
-    html += '  function mkiso(y,m,d){return y+"-"+z(m+1)+"-"+z(d);}\n'
-    html += '  function render(){\n'
-    html += '    var first=new Date(cy,cm,1).getDay();\n'
-    html += '    var days=new Date(cy,cm+1,0).getDate();\n'
-    html += '    var py=cm===0?cy-1:cy, pm=cm===0?11:cm-1;\n'
-    html += '    var ny=cm===11?cy+1:cy, nm=cm===11?0:cm+1;\n'
-    html += '    var h="";\n'
-    html += '    h+=\'<div class="mcal-nav">\';\n'
-    html += '    h+=\'<span class="nav-arr" onclick="navM(\'+py+\',\'+pm+\')">&#8249;</span>\';\n'
-    html += '    h+=\'<span class="mcal-mon">\'+MESES[cm]+\' \'+cy+\'</span>\';\n'
-    html += '    h+=\'<span class="nav-arr" onclick="navM(\'+ny+\',\'+nm+\')">&#8250;</span>\';\n'
-    html += '    h+=\'</div><div class="cal-grid">\';\n'
-    html += '    h+=\'<div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>\';\n'
-    html += '    for(var i=0;i<first;i++) h+=\'<div class="cal-day out">&nbsp;</div>\';\n'
-    html += '    for(var d=1;d<=days;d++){\n'
-    html += '      var iso=mkiso(cy,cm,d);\n'
-    html += '      var isH=(cy===hY&&cm===hM&&d===hD);\n'
-    html += '      var isS=(cy===sY&&cm===sM&&d===sD);\n'
-    html += '      var cls="cal-day"+(isH?" today":isS?" sel":"");\n'
-    html += '      h+=\'<div class="\'+cls+\'" onclick="pickDay(\\"\'+iso+\'\\")">\'+d+\'</div>\';\n'
-    html += '    }\n'
-    html += '    h+=\'</div>\';\n'
-    html += '    document.getElementById("ghcal").innerHTML=h;\n'
-    html += '  }\n'
-    html += '  window.navM=function(y,m){cy=+y;cm=+m;render();};\n'
-    html += '  window.pickDay=function(iso){\n'
-    html += '    var go=function(ctx){try{var u=new URL(ctx.location.href);u.searchParams.set("date",iso);ctx.location.href=u.toString();return true;}catch(e){return false;}};\n'
-    html += '    if(!go(window))if(!go(window.parent))go(window.top);\n'
-    html += '  };\n'
-    html += '  render();\n'
-    html += '})();\n'
-    html += '</script>\n'
-    return html
+    """Static mini-calendar used inside the sidebar card (desktop). Clicking navigates."""
+    hoje  = datetime.now(tz=TZ_SP).date()
+    y, m  = data_sel.year, data_sel.month
+    first = (date(y, m, 1).weekday() + 1) % 7
+    total = (date(y, m % 12 + 1, 1) - date(y, m, 1)).days if m < 12 \
+            else (date(y+1, 1, 1) - date(y, m, 1)).days
+    cells = '<div class="cal-day out"></div>' * first
+    for d in range(1, total + 1):
+        dt  = date(y, m, d)
+        iso = dt.isoformat()
+        cls = "cal-day" + (" today" if dt == hoje else " sel" if dt == data_sel else "")
+        cells += f'<div class="{cls}" onclick="pickDate(\'{iso}\')" style="cursor:pointer">{d}</div>'
+
+    # prev / next month
+    if m == 1: prev_y, prev_m = y-1, 12
+    else:      prev_y, prev_m = y,   m-1
+    if m == 12: next_y, next_m = y+1, 1
+    else:       next_y, next_m = y,   m+1
+
+    return f"""
+    <div class="mini-cal">
+      <div class="mcal-nav">
+        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
+              onclick="navMonth('{date(prev_y,prev_m,1).isoformat()}')">&#8249;</span>
+        <span class="mcal-mon">{MESES_PT[m-1]} {y}</span>
+        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
+              onclick="navMonth('{date(next_y,next_m,1).isoformat()}')">&#8250;</span>
+      </div>
+      <div class="cal-grid">
+        <div class="cal-dow">D</div><div class="cal-dow">S</div>
+        <div class="cal-dow">T</div><div class="cal-dow">Q</div>
+        <div class="cal-dow">Q</div><div class="cal-dow">S</div>
+        <div class="cal-dow">S</div>{cells}
+      </div>
+    </div>
+    <script>
+    function _sendDate(iso){{
+      var p=iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
+      var docs=[];
+      try{{docs.push(window.parent.document)}}catch(e){{}}
+      try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
+      for(var i=0;i<docs.length;i++){{
+        var inp=docs[i].querySelector('[data-testid="stDateInput"] input');
+        if(inp){{
+          var sv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
+          sv.set.call(inp,fmt);
+          inp.dispatchEvent(new Event("input",{{bubbles:true}}));
+          inp.dispatchEvent(new Event("change",{{bubbles:true}}));
+          return;
+        }}
+      }}
+    }}
+    function pickDate(iso){{ _sendDate(iso); }}
+    function navMonth(iso){{ _sendDate(iso); }}
+    </script>"""
 
 
 def _calendar_widget(label: str, hoje_iso: str, sel_iso: str) -> str:
@@ -733,144 +737,6 @@ html,body{{background:transparent;padding:4px 0 6px}}
 # ══════════════════════════════════════════════════════════════════════════════
 # PÁGINA: INÍCIO
 # ══════════════════════════════════════════════════════════════════════════════
-def _render_mini_cal(data_sel):
-    import calendar as _cal
-    from datetime import date
-
-    hoje = datetime.now(tz=TZ_SP).date()
-
-    if "cal_view_y" not in st.session_state:
-        st.session_state["cal_view_y"] = data_sel.year
-    if "cal_view_m" not in st.session_state:
-        st.session_state["cal_view_m"] = data_sel.month
-
-    vy = st.session_state["cal_view_y"]
-    vm = st.session_state["cal_view_m"]
-
-    prev_m = vm - 1 if vm > 1 else 12
-    prev_y = vy if vm > 1 else vy - 1
-    next_m = vm + 1 if vm < 12 else 1
-    next_y = vy if vm < 12 else vy + 1
-
-    first_weekday = (date(vy, vm, 1).weekday() + 1) % 7
-    days_in_month = _cal.monthrange(vy, vm)[1]
-    cells = [None] * first_weekday
-    for d in range(1, days_in_month + 1):
-        cells.append(date(vy, vm, d))
-    while len(cells) % 7 != 0:
-        cells.append(None)
-    weeks = [cells[i:i+7] for i in range(0, len(cells), 7)]
-
-    # ── CSS: esconde aparência nativa dos botões, deixa só a área clicável ──
-    st.markdown("""
-    <style>
-    /* Card wrapper */
-    .mcal-wrap{background:#fff;border:1px solid rgba(13,13,13,.09);
-               border-radius:14px;overflow:hidden;margin-bottom:16px;padding-bottom:12px;}
-    .mcal-head{display:flex;align-items:center;justify-content:space-between;
-               padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07);margin-bottom:8px;}
-    .mcal-title{font-size:13px;font-weight:500;color:#0D0D0D;font-family:'DM Sans',sans-serif;}
-    .mcal-month{font-size:12px;font-weight:500;color:#0D0D0D;font-family:'DM Sans',sans-serif;
-                text-align:center;}
-    .mcal-dow{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;
-              letter-spacing:.04em;text-transform:uppercase;padding:2px 0;
-              font-family:'DM Sans',sans-serif;}
-    .mcal-day{font-size:11px;font-family:'DM Mono',monospace;text-align:center;
-              padding:5px 2px;border-radius:6px;color:#0D0D0D;cursor:pointer;
-              min-height:26px;display:flex;align-items:center;justify-content:center;}
-    .mcal-day:hover{background:#F5F3EF;}
-    .mcal-today{background:#0D0D0D!important;color:#fff!important;border-radius:6px;}
-    .mcal-sel{background:#E8E5DF!important;color:#0D0D0D!important;border-radius:6px;}
-    .mcal-empty{min-height:26px;}
-
-    /* Botões Streamlit: completamente invisíveis mas clicáveis */
-    div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stButton"] button,
-    div[data-testid="stColumn"] > div > div[data-testid="stButton"] button {
-        opacity: 0 !important;
-        position: absolute !important;
-        top: 0 !important; left: 0 !important;
-        width: 100% !important; height: 100% !important;
-        padding: 0 !important; margin: 0 !important;
-        cursor: pointer !important;
-        z-index: 10 !important;
-        min-height: unset !important;
-        border: none !important;
-    }
-    /* Container relativo para sobreposição */
-    div[data-testid="stColumn"] {
-        position: relative !important;
-        padding: 1px !important;
-    }
-    div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] {
-        position: relative !important;
-    }
-    div[data-testid="stColumn"] > div > div[data-testid="stButton"] {
-        position: absolute !important;
-        top: 0 !important; left: 0 !important;
-        width: 100% !important; height: 100% !important;
-        z-index: 10 !important;
-    }
-    /* Remove padding extra do streamlit em columns */
-    div[data-testid="stHorizontalBlock"] { gap: 0 !important; }
-    div[data-testid="stColumn"] { min-width: 0 !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ── Card header ──
-    st.markdown(f"""
-    <div class="mcal-wrap">
-      <div class="mcal-head">
-        <span class="mcal-title">Calendário</span>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Navegação mês ──
-    nav_c = st.columns([1, 5, 1])
-    with nav_c[0]:
-        st.markdown('<div class="mcal-day" style="color:#8A8A8A;font-size:18px;">‹</div>', unsafe_allow_html=True)
-        if st.button("‹", key="cal_prev"):
-            st.session_state["cal_view_m"] = prev_m
-            st.session_state["cal_view_y"] = prev_y
-            st.rerun()
-    with nav_c[1]:
-        st.markdown(f'<div class="mcal-month">{MESES_PT[vm-1]} {vy}</div>', unsafe_allow_html=True)
-    with nav_c[2]:
-        st.markdown('<div class="mcal-day" style="color:#8A8A8A;font-size:18px;">›</div>', unsafe_allow_html=True)
-        if st.button("›", key="cal_next"):
-            st.session_state["cal_view_m"] = next_m
-            st.session_state["cal_view_y"] = next_y
-            st.rerun()
-
-    # ── Dias da semana ──
-    dow_cols = st.columns(7)
-    for i, lbl in enumerate(["D","S","T","Q","Q","S","S"]):
-        with dow_cols[i]:
-            st.markdown(f'<div class="mcal-dow">{lbl}</div>', unsafe_allow_html=True)
-
-    # ── Grade de dias ──
-    for week in weeks:
-        wc = st.columns(7)
-        for ci, dt in enumerate(week):
-            with wc[ci]:
-                if dt is None:
-                    st.markdown('<div class="mcal-empty"></div>', unsafe_allow_html=True)
-                else:
-                    is_today = (dt == hoje)
-                    is_sel   = (dt == data_sel)
-                    cls = "mcal-day"
-                    if is_today: cls += " mcal-today"
-                    elif is_sel: cls += " mcal-sel"
-                    # HTML visual
-                    st.markdown(f'<div class="{cls}">{dt.day}</div>', unsafe_allow_html=True)
-                    # Botão invisível sobreposto
-                    if st.button(" ", key=f"cd_{vy}_{vm}_{dt.day}"):
-                        st.session_state["data_agenda"] = dt
-                        st.session_state["cal_view_y"]  = vy
-                        st.session_state["cal_view_m"]  = vm
-                        st.rerun()
-
-
 def pagina_inicio():
     h = datetime.now(tz=TZ_SP).hour
     saudacao = "Bom dia" if h < 12 else "Boa tarde" if h < 18 else "Boa noite"
@@ -878,25 +744,15 @@ def pagina_inicio():
            "Agenda sincronizada com a Microsoft")
 
     hoje_sp = datetime.now(tz=TZ_SP).date()
-    # Lê ?date=YYYY-MM-DD enviado pelo clique no calendário JS
-    _qdate = st.query_params.get("date", "")
-    if _qdate:
-        try:
-            _parsed = date.fromisoformat(_qdate)
-            st.session_state["data_agenda"] = _parsed
-        except ValueError:
-            pass
-        # Remove o param para não ficar em loop
-        _qp = dict(st.query_params)
-        _qp.pop("date", None)
-        st.query_params.clear()
-        for _k,_v in _qp.items(): st.query_params[_k] = _v
     if st.session_state["data_agenda"] is None:
         st.session_state["data_agenda"] = hoje_sp
     data_sel = st.session_state["data_agenda"]
     label    = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_ABR[data_sel.month-1]} {data_sel.year}"
 
-    # date_input principal agora é o cal_date_picker dentro do card Calendário
+    data_input = st.date_input("data_oculta", value=data_sel,
+                               key="date_picker_hidden", label_visibility="collapsed")
+    if data_input != data_sel:
+        st.session_state["data_agenda"] = data_input; st.rerun()
 
     components.html(_calendar_widget(label, hoje_sp.isoformat(), data_sel.isoformat()),
                     height=52, scrolling=False)
@@ -978,37 +834,143 @@ def pagina_inicio():
         height=max(120, 68 + total * 70), scrolling=False)
 
     with col_side:
-        total_min = sum(_duracao_min(ev) for ev in eventos if not ev.get("_allday"))
-        h_oc = int(total_min//60); m_oc = int(total_min%60)
-        liv   = max(0,480-total_min)
-        h_liv = int(liv//60); m_liv = int(liv%60)
-        pct   = min(100,int(total_min/480*100)) if total_min>0 else 0
-        fim   = "--:--"
-        validos = [ev for ev in eventos if not ev.get("_allday")]
-        if validos:
+        # ── DAY PULSE ── janela fixa 08:00–18:48 (648 min) ──────────────────
+        BASE_MIN = 648
+        WIN_START = datetime(data_sel.year, data_sel.month, data_sel.day, 8,  0, tzinfo=TZ_SP)
+        WIN_END   = datetime(data_sel.year, data_sel.month, data_sel.day, 18, 48, tzinfo=TZ_SP)
+
+        # 1. Filtrar e converter eventos válidos (ignorar _allday)
+        _evs_raw = []
+        for ev in eventos:
+            if ev.get("_allday"):
+                continue
             try:
-                dt = pd.to_datetime(validos[-1]["end"]["dateTime"])
-                if dt.tzinfo is None: dt = dt.tz_localize("UTC")
-                fim = dt.tz_convert(TZ_SP).strftime("%H:%M")
-            except Exception: pass
+                s = pd.to_datetime(ev["start"]["dateTime"])
+                e = pd.to_datetime(ev["end"]["dateTime"])
+                if s.tzinfo is None: s = s.tz_localize("UTC")
+                if e.tzinfo is None: e = e.tz_localize("UTC")
+                s = s.tz_convert(TZ_SP)
+                e = e.tz_convert(TZ_SP)
+                # Ajustar à janela
+                s = max(s, WIN_START)
+                e = min(e, WIN_END)
+                if s >= e:
+                    continue
+                _evs_raw.append((s, e))
+            except Exception:
+                continue
+
+        # 2. Ordenar por início
+        _evs_raw.sort(key=lambda x: x[0])
+
+        # 3. Mesclar sobrepostos
+        merged = []
+        for s, e in _evs_raw:
+            if merged and s <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+            else:
+                merged.append((s, e))
+
+        # 4. Métricas
+        total_eventos    = len([ev for ev in eventos if not ev.get("_allday")])
+        tempo_ocupado_min = sum((e - s).total_seconds() / 60 for s, e in merged)
+        tempo_livre_min   = max(0, BASE_MIN - tempo_ocupado_min)
+        pct_raw           = tempo_ocupado_min / BASE_MIN * 100 if tempo_ocupado_min > 0 else 0
+        pct               = min(100, int(pct_raw))
+        fim_ultimo_evento = merged[-1][1].strftime("%H:%M") if merged else "--:--"
+
+        # 5. Intervalos livres
+        def _fmt_interval(a, b):
+            return f"{a.strftime('%H:%M')} → {b.strftime('%H:%M')}"
+
+        intervalos_livres = []
+        cursor = WIN_START
+        for s, e in merged:
+            if s > cursor:
+                intervalos_livres.append((cursor, s))
+            cursor = e
+        if cursor < WIN_END:
+            intervalos_livres.append((cursor, WIN_END))
+
+        def _dur_label(a, b):
+            d = int((b - a).total_seconds() / 60)
+            return f"{d//60}h {d%60}m" if d >= 60 else f"{d}m"
+
+        proximo_livre = None
+        agora_sp = datetime.now(tz=TZ_SP)
+        for a, b in intervalos_livres:
+            if b > agora_sp or data_sel != datetime.now(tz=TZ_SP).date():
+                proximo_livre = (a, b)
+                break
+        if proximo_livre is None and intervalos_livres:
+            proximo_livre = intervalos_livres[0]
+
+        maior_intervalo = max(intervalos_livres, key=lambda x: (x[1]-x[0]).total_seconds()) if intervalos_livres else None
+
+        prox_txt  = f"{_fmt_interval(*proximo_livre)} ({_dur_label(*proximo_livre)})"  if proximo_livre  else "–"
+        maior_txt = f"{_fmt_interval(*maior_intervalo)} ({_dur_label(*maior_intervalo)})" if maior_intervalo else "–"
+
+        # 6. Formatação de tempo
+        h_oc  = int(tempo_ocupado_min // 60); m_oc  = int(tempo_ocupado_min % 60)
+        h_liv = int(tempo_livre_min   // 60); m_liv = int(tempo_livre_min   % 60)
+
+        # 7. Cor da barra
+        if pct_raw < 50:
+            bar_color = "#1C6C4E"   # verde
+        elif pct_raw < 80:
+            bar_color = "#8C5A00"   # amarelo
+        else:
+            bar_color = "#B83232"   # vermelho
 
         st.markdown(f"""
         <div class="gh-card">
           <div class="card-hd"><span class="card-title">Day Pulse</span><span class="card-meta">Resumo do dia</span></div>
           <div class="pulse-grid">
-            <div class="pulse-cell"><div class="pulse-lbl">Eventos</div><div class="pulse-val c-blue">{total}</div></div>
+            <div class="pulse-cell"><div class="pulse-lbl">Eventos</div><div class="pulse-val c-blue">{total_eventos}</div></div>
             <div class="pulse-cell"><div class="pulse-lbl">Ocupado</div><div class="pulse-val">{h_oc}h {m_oc}m</div></div>
             <div class="pulse-cell"><div class="pulse-lbl">Livre</div><div class="pulse-val c-green">{h_liv}h {m_liv}m</div></div>
-            <div class="pulse-cell"><div class="pulse-lbl">Término</div><div class="pulse-val c-red">{fim}</div></div>
+            <div class="pulse-cell"><div class="pulse-lbl">Término</div><div class="pulse-val c-red">{fim_ultimo_evento}</div></div>
           </div>
           <div class="prog-wrap">
             <div class="prog-lbl"><span>Ocupação</span><span>{pct}%</span></div>
-            <div class="prog-track"><div class="prog-fill" style="width:{pct}%"></div></div>
+            <div class="prog-track"><div class="prog-fill" style="width:{pct}%;background:{bar_color}"></div></div>
+          </div>
+          <div style="padding:0 20px 14px;display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:11px;color:#8A8A8A;">
+              <span style="font-weight:500;color:#0D0D0D;">Próximo livre:</span> {prox_txt}
+            </div>
+            <div style="font-size:11px;color:#8A8A8A;">
+              <span style="font-weight:500;color:#0D0D0D;">Maior intervalo:</span> {maior_txt}
+            </div>
           </div>
         </div>""", unsafe_allow_html=True)
 
-        # ── Calendário visual com st.button (100% nativo, funciona no Streamlit Cloud) ──
-        _render_mini_cal(data_sel)
+        st.markdown("""
+        <div class="gh-card">
+          <div class="card-hd"><span class="card-title">Calendário</span></div>
+        """, unsafe_allow_html=True)
+        cal_inner = _mini_cal_html(data_sel)
+        components.html(
+            f"""<!DOCTYPE html><html><head>
+            <meta charset="UTF-8">
+            <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+            <style>
+            *{{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',system-ui,sans-serif}}
+            html,body{{background:#fff;padding:0}}
+            .mini-cal{{padding:13px 20px}}
+            .mcal-nav{{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}}
+            .mcal-mon{{font-size:12px;font-weight:500;color:#0D0D0D}}
+            .cal-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
+            .cal-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;padding:3px 0;letter-spacing:.04em;text-transform:uppercase}}
+            .cal-day{{font-size:11px;font-family:'DM Mono',monospace;text-align:center;padding:5px 2px;border-radius:5px;color:#0D0D0D}}
+            .cal-day:hover:not(.out){{background:#F5F3EF;cursor:pointer}}
+            .cal-day.today{{background:#0D0D0D;color:#fff}}
+            .cal-day.sel:not(.today){{background:#E8E5DF}}
+            .cal-day.out{{color:rgba(13,13,13,.18);pointer-events:none}}
+            </style></head><body>{cal_inner}</body></html>""",
+            height=240, scrolling=False
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
