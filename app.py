@@ -228,18 +228,25 @@ div[data-testid="stDateInput"] {
 .empty-box .ei { font-size:26px; }
 .empty-box p   { font-size:13px; color:#8A8A8A; margin-top:8px; }
 
-/* DAY PULSE */
-.pulse-grid { display:grid; grid-template-columns:1fr 1fr;
-              gap:1px; background:rgba(13,13,13,.07); }
-.pulse-cell { background:#fff; padding:16px; }
-.pulse-lbl  { font-size:9px; font-weight:500; letter-spacing:.08em;
-              text-transform:uppercase; color:#8A8A8A; }
-.pulse-val  { font-size:21px; font-weight:300; letter-spacing:-.5px; margin-top:5px; color:#0D0D0D; }
-.c-blue  { color:#1A4F8A; } .c-green { color:#1C6C4E; } .c-red { color:#B83232; }
-.prog-wrap  { padding:13px 20px; }
-.prog-lbl   { display:flex; justify-content:space-between; font-size:11px; color:#8A8A8A; margin-bottom:6px; }
-.prog-track { height:5px; background:#F0EDE8; border-radius:99px; overflow:hidden; }
-.prog-fill  { height:100%; border-radius:99px; background:#0D0D0D; }
+/* DAY PULSE — hero layout */
+.dp-hero      { padding:18px 20px 14px; border-bottom:1px solid rgba(13,13,13,.07); }
+.dp-hero-lbl  { font-size:9px; font-weight:500; letter-spacing:.08em; text-transform:uppercase;
+                color:#8A8A8A; margin-bottom:5px; }
+.dp-hero-val  { font-size:36px; font-weight:300; letter-spacing:-.8px; color:#1C6C4E;
+                line-height:1; margin-bottom:4px; }
+.dp-hero-sub  { font-size:11px; color:#8A8A8A; }
+.dp-stats     { display:grid; grid-template-columns:1fr 1fr 1fr;
+                gap:1px; background:rgba(13,13,13,.07);
+                border-bottom:1px solid rgba(13,13,13,.07); }
+.dp-stat      { background:#fff; padding:11px 14px; }
+.dp-stat-lbl  { font-size:9px; font-weight:500; letter-spacing:.07em;
+                text-transform:uppercase; color:#8A8A8A; margin-bottom:3px; }
+.dp-stat-val  { font-size:16px; font-weight:500; color:#0D0D0D; }
+.dp-stat-red  { color:#B83232; }
+.prog-wrap    { padding:10px 20px; }
+.prog-lbl     { display:flex; justify-content:space-between; font-size:11px; color:#8A8A8A; margin-bottom:6px; }
+.prog-track   { height:4px; background:#F0EDE8; border-radius:99px; overflow:hidden; }
+.prog-fill    { height:100%; border-radius:99px; }
 
 /* MINI CAL */
 .mini-cal { padding:13px 20px; }
@@ -255,32 +262,25 @@ div[data-testid="stDateInput"] {
 .cal-day.out  { color:rgba(13,13,13,.18); }
 
 /* DAY PULSE TIMELINE */
-.dp-tl-wrap { padding:0 20px 14px; display:flex; flex-direction:column; gap:4px; }
-.dp-tl-hd   { font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
-               color:#8A8A8A; margin-bottom:6px; margin-top:2px; }
-.dp-blk     { display:flex; align-items:stretch; gap:10px; border-radius:8px;
-               padding:8px 10px; transition:background .1s; }
-.dp-blk-busy { background:#F0F3F8; }
-.dp-blk-free { background:#F0F7F4; }
-.dp-blk:hover { filter:brightness(.97); }
-.dp-tms     { display:flex; flex-direction:column; align-items:flex-end;
-               width:38px; flex-shrink:0; gap:2px; padding-top:1px; }
-.dp-t       { font-family:'DM Mono',monospace; font-size:9.5px; color:#8A8A8A; line-height:1; }
-.dp-t-free  { color:#AAAAAA; }
-.dp-sep     { flex:1; width:1px; background:rgba(13,13,13,.10); align-self:center;
-               min-height:10px; margin:2px 0; }
-.dp-sep-free{ background:rgba(13,13,13,.06); }
-.dp-bar     { width:3px; border-radius:2px; flex-shrink:0; align-self:stretch; min-height:32px; }
-.dp-bar-busy{ background:#1A4F8A; }
-.dp-bar-free{ background:#1C6C4E; opacity:.4; }
-.dp-body    { flex:1; min-width:0; display:flex; flex-direction:column;
-               justify-content:center; gap:2px; }
-.dp-tag     { display:inline-flex; align-items:center; font-size:9px; font-weight:600;
-               letter-spacing:.05em; text-transform:uppercase; padding:2px 6px;
-               border-radius:4px; width:fit-content; }
-.dp-tag-busy{ background:#D8E4F2; color:#1A4F8A; }
-.dp-tag-free{ background:#C8E8DC; color:#1C6C4E; }
-.dp-title   { font-size:11.5px; font-weight:500; color:#0D0D0D;
+.dp-tl-wrap { padding:0 0 12px; display:flex; flex-direction:column; }
+.dp-tl-hd   { font-size:9px; font-weight:500; letter-spacing:.07em; text-transform:uppercase;
+               color:#8A8A8A; padding:10px 20px 4px; }
+.dp-row     { display:grid; grid-template-columns:42px 3px 1fr;
+               gap:0 8px; padding:5px 20px 5px 14px; align-items:center;
+               transition:background .1s; }
+.dp-row:hover { background:#F5F3EF; }
+.dp-times   { display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
+.dp-t       { font-family:'DM Mono',monospace; font-size:9.5px; color:#8A8A8A; line-height:1.2; }
+.dp-seg     { border-radius:2px; align-self:stretch; min-height:30px; }
+.dp-seg-busy{ background:#B5D4F4; }
+.dp-seg-free{ background:#9FE1CB; }
+.dp-row-body{ display:flex; flex-direction:column; gap:2px; }
+.dp-pill    { display:inline-flex; align-items:center; font-size:9px; font-weight:500;
+               letter-spacing:.04em; padding:2px 6px; border-radius:4px;
+               align-self:flex-start; }
+.dp-pill-busy{ background:#E8EEF6; color:#1A4F8A; }
+.dp-pill-free{ background:#D6EDE5; color:#1C6C4E; }
+.dp-row-name{ font-size:11.5px; font-weight:500; color:#0D0D0D;
                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* POWER BI */
@@ -965,9 +965,7 @@ def pagina_inicio():
         WIN_START = datetime(data_sel.year, data_sel.month, data_sel.day, 8, 0, tzinfo=TZ_SP)
         _win_end_default = datetime(data_sel.year, data_sel.month, data_sel.day, 18, 0, tzinfo=TZ_SP)
 
-        # 1. Filtrar e converter eventos válidos (ignorar _allday)
-        #    Tupla (s, e, subject) — subject capturado aqui para evitar
-        #    re-matching frágil por string de horário mais adiante.
+        # 1. Filtrar e converter eventos válidos — tupla (s, e, subject)
         _evs_raw = []
         for ev in eventos:
             if ev.get("_allday"):
@@ -984,8 +982,7 @@ def pagina_inicio():
             except Exception:
                 continue
 
-        # 2. Calcular WIN_END de forma dinâmica: máximo entre o padrão e o
-        #    fim real do último evento, garantindo que nenhum evento fique cortado.
+        # 2. WIN_END dinâmico
         if _evs_raw:
             _last_end = max(e for _, e, _ in _evs_raw)
             WIN_END = max(_win_end_default, _last_end)
@@ -993,7 +990,7 @@ def pagina_inicio():
             WIN_END = _win_end_default
         BASE_MIN = int((WIN_END - WIN_START).total_seconds() / 60)
 
-        # 3. Ajustar eventos à janela e ordenar por início
+        # 3. Clipar à janela e ordenar
         _evs_clipped = []
         for s, e, subj in _evs_raw:
             sc = max(s, WIN_START)
@@ -1002,8 +999,7 @@ def pagina_inicio():
                 _evs_clipped.append((sc, ec, subj))
         _evs_clipped.sort(key=lambda x: x[0])
 
-        # 4. Mesclar sobrepostos
-        #    A tupla merged guarda (s, e, subject_do_primeiro_evento_do_bloco).
+        # 4. Mesclar sobrepostos (preserva subject do primeiro)
         merged = []
         for s, e, subj in _evs_clipped:
             if merged and s <= merged[-1][1]:
@@ -1012,57 +1008,6 @@ def pagina_inicio():
                 merged.append((s, e, subj))
 
         # 5. Métricas
-        total_eventos     = len([ev for ev in eventos if not ev.get("_allday")])
-        tempo_ocupado_min = sum((e - s).total_seconds() / 60 for s, e, _ in merged)
-        tempo_livre_min   = max(0, BASE_MIN - tempo_ocupado_min)
-        pct_raw           = tempo_ocupado_min / BASE_MIN * 100 if tempo_ocupado_min > 0 else 0
-        pct               = min(100, int(pct_raw))
-        fim_ultimo_evento = merged[-1][1].strftime("%H:%M") if merged else "--:--"
-
-        # 6. Intervalos livres
-        def _fmt_interval(a, b):
-            return f"{a.strftime('%H:%M')} → {b.strftime('%H:%M')}"
-
-        intervalos_livres = []
-        cursor = WIN_START
-        for s, e, _ in merged:
-            if s > cursor:
-                intervalos_livres.append((cursor, s))
-            cursor = e
-        if cursor < WIN_END:
-            intervalos_livres.append((cursor, WIN_END))
-
-        def _dur_label(a, b):
-            d = int((b - a).total_seconds() / 60)
-            return f"{d//60}h {d%60}m" if d >= 60 else f"{d}m"
-
-        proximo_livre = None
-        agora_sp = datetime.now(tz=TZ_SP)
-        for a, b in intervalos_livres:
-            if b > agora_sp or data_sel != datetime.now(tz=TZ_SP).date():
-                proximo_livre = (a, b)
-                break
-        if proximo_livre is None and intervalos_livres:
-            proximo_livre = intervalos_livres[0]
-
-        maior_intervalo = max(intervalos_livres, key=lambda x: (x[1]-x[0]).total_seconds()) if intervalos_livres else None
-
-        prox_txt  = f"{_fmt_interval(*proximo_livre)} ({_dur_label(*proximo_livre)})"  if proximo_livre  else "–"
-        maior_txt = f"{_fmt_interval(*maior_intervalo)} ({_dur_label(*maior_intervalo)})" if maior_intervalo else "–"
-
-        # 6. Formatação de tempo
-        h_oc  = int(tempo_ocupado_min // 60); m_oc  = int(tempo_ocupado_min % 60)
-        h_liv = int(tempo_livre_min   // 60); m_liv = int(tempo_livre_min   % 60)
-
-        # 7. Cor da barra
-        if pct_raw < 50:
-            bar_color = "#1C6C4E"   # verde
-        elif pct_raw < 80:
-            bar_color = "#8C5A00"   # amarelo
-        else:
-            bar_color = "#B83232"   # vermelho
-
-        # ── Linha do tempo para o Day Pulse ─────────────────────────────────
         def _dp_fmt_dur(a, b):
             d = int((b - a).total_seconds() / 60)
             if d <= 0: return ""
@@ -1071,6 +1016,44 @@ def pagina_inicio():
             if m2 == 0:  return f"{h2}h"
             return f"{h2}h{m2:02d}"
 
+        total_eventos     = len([ev for ev in eventos if not ev.get("_allday")])
+        tempo_ocupado_min = sum((e - s).total_seconds() / 60 for s, e, _ in merged)
+        tempo_livre_min   = max(0, BASE_MIN - tempo_ocupado_min)
+        pct_raw           = tempo_ocupado_min / BASE_MIN * 100 if BASE_MIN > 0 else 0
+        pct               = min(100, int(pct_raw))
+        fim_ultimo_evento = merged[-1][1].strftime("%H:%M") if merged else "--:--"
+        h_oc = int(tempo_ocupado_min // 60); m_oc = int(tempo_ocupado_min % 60)
+        h_liv = int(tempo_livre_min  // 60); m_liv = int(tempo_livre_min  % 60)
+
+        # 6. Intervalos livres — maior bloco para o herói
+        intervalos_livres = []
+        _cur = WIN_START
+        for s, e, _ in merged:
+            if s > _cur:
+                intervalos_livres.append((_cur, s))
+            _cur = e
+        if _cur < WIN_END:
+            intervalos_livres.append((_cur, WIN_END))
+
+        if intervalos_livres:
+            maior = max(intervalos_livres, key=lambda x: (x[1] - x[0]).total_seconds())
+            _md = int((maior[1] - maior[0]).total_seconds() / 60)
+            _mh, _mm = divmod(_md, 60)
+            maior_txt = (f"{maior[0].strftime('%H:%M')} – {maior[1].strftime('%H:%M')} "
+                         f"({_mh}h{_mm:02d}" if _mh and _mm else
+                         f"{maior[0].strftime('%H:%M')} – {maior[1].strftime('%H:%M')} "
+                         f"({_mh}h" if _mh else
+                         f"{maior[0].strftime('%H:%M')} – {maior[1].strftime('%H:%M')} "
+                         f"({_md}min") + ")"
+        else:
+            maior_txt = "Nenhum intervalo livre"
+
+        # 7. Cor da barra de ocupação
+        if pct_raw < 50:   bar_color = "#1C6C4E"
+        elif pct_raw < 80: bar_color = "#8C5A00"
+        else:              bar_color = "#B83232"
+
+        # 8. Montar timeline
         _dp_timeline = []
         _dp_cursor = WIN_START
         for s, e, subj in merged:
@@ -1093,60 +1076,72 @@ def pagina_inicio():
                                   "dur": _dp_fmt_dur(_dp_cursor, WIN_END),
                                   "subject": ""})
 
-        # Gerar HTML dos blocos do Day Pulse timeline
+        # 9. Gerar linhas HTML da timeline
         _dp_rows = ""
         for blk in _dp_timeline:
             if blk["type"] == "ocupado":
                 _subj_safe = html_lib.escape(blk["subject"])
-                _dp_rows += f"""
-                <div class="dp-blk dp-blk-busy">
-                  <div class="dp-tms">
-                    <div class="dp-t">{blk["hi"]}</div>
-                    <div class="dp-sep"></div>
-                    <div class="dp-t">{blk["hf"]}</div>
-                  </div>
-                  <div class="dp-bar dp-bar-busy"></div>
-                  <div class="dp-body">
-                    <div class="dp-tag dp-tag-busy">Reunião · {blk["dur"]}</div>
-                    <div class="dp-title">{_subj_safe}</div>
-                  </div>
-                </div>"""
+                _dp_rows += (
+                    '<div class="dp-row">'
+                    '<div class="dp-times">'
+                    f'<span class="dp-t">{blk["hi"]}</span>'
+                    f'<span class="dp-t">{blk["hf"]}</span>'
+                    '</div>'
+                    '<div class="dp-seg dp-seg-busy"></div>'
+                    '<div class="dp-row-body">'
+                    f'<span class="dp-pill dp-pill-busy">Reunião · {blk["dur"]}</span>'
+                    f'<span class="dp-row-name">{_subj_safe}</span>'
+                    '</div>'
+                    '</div>'
+                )
             else:
-                _dp_rows += f"""
-                <div class="dp-blk dp-blk-free">
-                  <div class="dp-tms">
-                    <div class="dp-t dp-t-free">{blk["hi"]}</div>
-                    <div class="dp-sep dp-sep-free"></div>
-                    <div class="dp-t dp-t-free">{blk["hf"]}</div>
-                  </div>
-                  <div class="dp-bar dp-bar-free"></div>
-                  <div class="dp-body">
-                    <div class="dp-tag dp-tag-free">Disponível · {blk["dur"]}</div>
-                  </div>
-                </div>"""
+                _dp_rows += (
+                    '<div class="dp-row">'
+                    '<div class="dp-times">'
+                    f'<span class="dp-t">{blk["hi"]}</span>'
+                    f'<span class="dp-t">{blk["hf"]}</span>'
+                    '</div>'
+                    '<div class="dp-seg dp-seg-free"></div>'
+                    '<div class="dp-row-body">'
+                    f'<span class="dp-pill dp-pill-free">Disponível · {blk["dur"]}</span>'
+                    '</div>'
+                    '</div>'
+                )
 
-        _dp_rows_or_empty = _dp_rows if _dp_rows else '<div style="padding:12px;font-size:12px;color:#8A8A8A;text-align:center;">Dia livre 🎉</div>'
+        _dp_rows_or_empty = _dp_rows if _dp_rows else (
+            '<div style="padding:14px 20px;font-size:12px;color:#8A8A8A;text-align:center;">Dia livre 🎉</div>'
+        )
 
-        _day_pulse_html = (
+        # 10. Renderizar card Day Pulse — hero + stats + barra + timeline
+        _maior_txt_safe = html_lib.escape(maior_txt)
+        _dp_html = (
             '<div class="gh-card">'
-            '<div class="card-hd"><span class="card-title">Day Pulse</span><span class="card-meta">Resumo do dia</span></div>'
-            '<div class="pulse-grid">'
-            f'<div class="pulse-cell"><div class="pulse-lbl">Eventos</div><div class="pulse-val c-blue">{total_eventos}</div></div>'
-            f'<div class="pulse-cell"><div class="pulse-lbl">Ocupado</div><div class="pulse-val">{h_oc}h {m_oc}m</div></div>'
-            f'<div class="pulse-cell"><div class="pulse-lbl">Livre</div><div class="pulse-val c-green">{h_liv}h {m_liv}m</div></div>'
-            f'<div class="pulse-cell"><div class="pulse-lbl">Término</div><div class="pulse-val c-red">{fim_ultimo_evento}</div></div>'
-            '</div>'
-            '<div class="prog-wrap">'
-            f'<div class="prog-lbl"><span>Ocupação</span><span>{pct}%</span></div>'
-            f'<div class="prog-track"><div class="prog-fill" style="width:{pct}%;background:{bar_color}"></div></div>'
-            '</div>'
-            '<div class="dp-tl-wrap">'
-            f'<div class="dp-tl-hd">Linha do tempo · 08:00 – {WIN_END.strftime("%H:%M")}</div>'
+              '<div class="card-hd">'
+                '<span class="card-title">Day Pulse</span>'
+                '<span class="card-meta">Resumo do dia</span>'
+              '</div>'
+              '<div class="dp-hero">'
+                '<div class="dp-hero-lbl">Você ainda tem livre hoje</div>'
+                f'<div class="dp-hero-val">{h_liv}h {m_liv}m</div>'
+                f'<div class="dp-hero-sub">Maior bloco: {_maior_txt_safe}</div>'
+              '</div>'
+              '<div class="dp-stats">'
+                f'<div class="dp-stat"><div class="dp-stat-lbl">Ocupado</div><div class="dp-stat-val">{h_oc}h {m_oc}m</div></div>'
+                f'<div class="dp-stat"><div class="dp-stat-lbl">Reuniões</div><div class="dp-stat-val">{total_eventos}</div></div>'
+                f'<div class="dp-stat"><div class="dp-stat-lbl">Término</div><div class="dp-stat-val dp-stat-red">{fim_ultimo_evento}</div></div>'
+              '</div>'
+              '<div class="prog-wrap">'
+                '<div class="prog-lbl"><span>Ocupação</span>'
+                f'<span>{pct}%</span></div>'
+                f'<div class="prog-track"><div class="prog-fill" style="width:{pct}%;background:{bar_color}"></div></div>'
+              '</div>'
+              '<div class="dp-tl-wrap">'
+                f'<div class="dp-tl-hd">Linha do tempo · 08:00 – {WIN_END.strftime("%H:%M")}</div>'
             + _dp_rows_or_empty +
-            '</div>'
+              '</div>'
             '</div>'
         )
-        st.markdown(_day_pulse_html, unsafe_allow_html=True)
+        st.markdown(_dp_html, unsafe_allow_html=True)
 
         st.markdown("""
         <div class="gh-card">
