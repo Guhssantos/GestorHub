@@ -961,12 +961,13 @@ def pagina_inicio():
         height=_tl_height, scrolling=False)
 
     with col_side:
-        # ── DAY PULSE ── janela fixa 08:00–18:48 (648 min) ──────────────────
-        BASE_MIN = 648
-        WIN_START = datetime(data_sel.year, data_sel.month, data_sel.day, 8,  0, tzinfo=TZ_SP)
-        WIN_END   = datetime(data_sel.year, data_sel.month, data_sel.day, 18, 48, tzinfo=TZ_SP)
+        # ── DAY PULSE ─────────────────────────────────────────────────────────
+        WIN_START = datetime(data_sel.year, data_sel.month, data_sel.day, 8, 0, tzinfo=TZ_SP)
+        _win_end_default = datetime(data_sel.year, data_sel.month, data_sel.day, 18, 0, tzinfo=TZ_SP)
 
         # 1. Filtrar e converter eventos válidos (ignorar _allday)
+        #    Tupla (s, e, subject) — subject capturado aqui para evitar
+        #    re-matching frágil por string de horário mais adiante.
         _evs_raw = []
         for ev in eventos:
             if ev.get("_allday"):
@@ -978,41 +979,53 @@ def pagina_inicio():
                 if e.tzinfo is None: e = e.tz_localize("UTC")
                 s = s.tz_convert(TZ_SP)
                 e = e.tz_convert(TZ_SP)
-                # Ajustar à janela
-                s = max(s, WIN_START)
-                e = min(e, WIN_END)
-                if s >= e:
-                    continue
-                _evs_raw.append((s, e))
+                subj = str(ev.get("subject") or "Reunião")
+                _evs_raw.append((s, e, subj))
             except Exception:
                 continue
 
-        # 2. Ordenar por início
-        _evs_raw.sort(key=lambda x: x[0])
+        # 2. Calcular WIN_END de forma dinâmica: máximo entre o padrão e o
+        #    fim real do último evento, garantindo que nenhum evento fique cortado.
+        if _evs_raw:
+            _last_end = max(e for _, e, _ in _evs_raw)
+            WIN_END = max(_win_end_default, _last_end)
+        else:
+            WIN_END = _win_end_default
+        BASE_MIN = int((WIN_END - WIN_START).total_seconds() / 60)
 
-        # 3. Mesclar sobrepostos
+        # 3. Ajustar eventos à janela e ordenar por início
+        _evs_clipped = []
+        for s, e, subj in _evs_raw:
+            sc = max(s, WIN_START)
+            ec = min(e, WIN_END)
+            if sc < ec:
+                _evs_clipped.append((sc, ec, subj))
+        _evs_clipped.sort(key=lambda x: x[0])
+
+        # 4. Mesclar sobrepostos
+        #    A tupla merged guarda (s, e, subject_do_primeiro_evento_do_bloco).
         merged = []
-        for s, e in _evs_raw:
+        for s, e, subj in _evs_clipped:
             if merged and s <= merged[-1][1]:
-                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e), merged[-1][2])
             else:
-                merged.append((s, e))
+                merged.append((s, e, subj))
 
-        # 4. Métricas
-        total_eventos    = len([ev for ev in eventos if not ev.get("_allday")])
-        tempo_ocupado_min = sum((e - s).total_seconds() / 60 for s, e in merged)
+        # 5. Métricas
+        total_eventos     = len([ev for ev in eventos if not ev.get("_allday")])
+        tempo_ocupado_min = sum((e - s).total_seconds() / 60 for s, e, _ in merged)
         tempo_livre_min   = max(0, BASE_MIN - tempo_ocupado_min)
         pct_raw           = tempo_ocupado_min / BASE_MIN * 100 if tempo_ocupado_min > 0 else 0
         pct               = min(100, int(pct_raw))
         fim_ultimo_evento = merged[-1][1].strftime("%H:%M") if merged else "--:--"
 
-        # 5. Intervalos livres
+        # 6. Intervalos livres
         def _fmt_interval(a, b):
             return f"{a.strftime('%H:%M')} → {b.strftime('%H:%M')}"
 
         intervalos_livres = []
         cursor = WIN_START
-        for s, e in merged:
+        for s, e, _ in merged:
             if s > cursor:
                 intervalos_livres.append((cursor, s))
             cursor = e
@@ -1060,7 +1073,7 @@ def pagina_inicio():
 
         _dp_timeline = []
         _dp_cursor = WIN_START
-        for s, e in merged:
+        for s, e, subj in merged:
             if s > _dp_cursor:
                 _dp_timeline.append({"type": "livre",
                                      "hi": _dp_cursor.strftime("%H:%M"),
@@ -1071,7 +1084,7 @@ def pagina_inicio():
                                   "hi": s.strftime("%H:%M"),
                                   "hf": e.strftime("%H:%M"),
                                   "dur": _dp_fmt_dur(s, e),
-                                  "subject": ""})
+                                  "subject": subj})
             _dp_cursor = e
         if _dp_cursor < WIN_END:
             _dp_timeline.append({"type": "livre",
@@ -1079,26 +1092,6 @@ def pagina_inicio():
                                   "hf": WIN_END.strftime("%H:%M"),
                                   "dur": _dp_fmt_dur(_dp_cursor, WIN_END),
                                   "subject": ""})
-
-        # Enriquecer blocos "ocupado" com o subject do evento correspondente
-        _busy_blocks = [blk for blk in _dp_timeline if blk["type"] == "ocupado"]
-        _busy_idx = 0
-        for blk in _dp_timeline:
-            if blk["type"] != "ocupado":
-                continue
-            for ev in eventos:
-                if ev.get("_allday"): continue
-                try:
-                    _s = pd.to_datetime(ev["start"]["dateTime"])
-                    if _s.tzinfo is None: _s = _s.tz_localize("UTC")
-                    _s = _s.tz_convert(TZ_SP)
-                    if max(_s, WIN_START).strftime("%H:%M") == blk["hi"]:
-                        blk["subject"] = str(ev.get("subject") or "Reunião")
-                        break
-                except Exception:
-                    pass
-            if not blk["subject"]:
-                blk["subject"] = "Reunião"
 
         # Gerar HTML dos blocos do Day Pulse timeline
         _dp_rows = ""
@@ -1148,7 +1141,7 @@ def pagina_inicio():
             f'<div class="prog-track"><div class="prog-fill" style="width:{pct}%;background:{bar_color}"></div></div>'
             '</div>'
             '<div class="dp-tl-wrap">'
-            '<div class="dp-tl-hd">Linha do tempo · 08:00 – 18:48</div>'
+            f'<div class="dp-tl-hd">Linha do tempo · 08:00 – {WIN_END.strftime("%H:%M")}</div>'
             + _dp_rows_or_empty +
             '</div>'
             '</div>'
