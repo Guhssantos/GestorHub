@@ -1134,24 +1134,26 @@ def pagina_inicio():
 
         _dp_rows_or_empty = _dp_rows if _dp_rows else '<div style="padding:12px;font-size:12px;color:#8A8A8A;text-align:center;">Dia livre 🎉</div>'
 
-        st.markdown(f"""
-        <div class="gh-card">
-          <div class="card-hd"><span class="card-title">Day Pulse</span><span class="card-meta">Resumo do dia</span></div>
-          <div class="pulse-grid">
-            <div class="pulse-cell"><div class="pulse-lbl">Eventos</div><div class="pulse-val c-blue">{total_eventos}</div></div>
-            <div class="pulse-cell"><div class="pulse-lbl">Ocupado</div><div class="pulse-val">{h_oc}h {m_oc}m</div></div>
-            <div class="pulse-cell"><div class="pulse-lbl">Livre</div><div class="pulse-val c-green">{h_liv}h {m_liv}m</div></div>
-            <div class="pulse-cell"><div class="pulse-lbl">Término</div><div class="pulse-val c-red">{fim_ultimo_evento}</div></div>
-          </div>
-          <div class="prog-wrap">
-            <div class="prog-lbl"><span>Ocupação</span><span>{pct}%</span></div>
-            <div class="prog-track"><div class="prog-fill" style="width:{pct}%;background:{bar_color}"></div></div>
-          </div>
-          <div class="dp-tl-wrap">
-            <div class="dp-tl-hd">Linha do tempo · 08:00 – 18:48</div>
-            {_dp_rows_or_empty}
-          </div>
-        </div>""", unsafe_allow_html=True)
+        _day_pulse_html = (
+            '<div class="gh-card">'
+            '<div class="card-hd"><span class="card-title">Day Pulse</span><span class="card-meta">Resumo do dia</span></div>'
+            '<div class="pulse-grid">'
+            f'<div class="pulse-cell"><div class="pulse-lbl">Eventos</div><div class="pulse-val c-blue">{total_eventos}</div></div>'
+            f'<div class="pulse-cell"><div class="pulse-lbl">Ocupado</div><div class="pulse-val">{h_oc}h {m_oc}m</div></div>'
+            f'<div class="pulse-cell"><div class="pulse-lbl">Livre</div><div class="pulse-val c-green">{h_liv}h {m_liv}m</div></div>'
+            f'<div class="pulse-cell"><div class="pulse-lbl">Término</div><div class="pulse-val c-red">{fim_ultimo_evento}</div></div>'
+            '</div>'
+            '<div class="prog-wrap">'
+            f'<div class="prog-lbl"><span>Ocupação</span><span>{pct}%</span></div>'
+            f'<div class="prog-track"><div class="prog-fill" style="width:{pct}%;background:{bar_color}"></div></div>'
+            '</div>'
+            '<div class="dp-tl-wrap">'
+            '<div class="dp-tl-hd">Linha do tempo · 08:00 – 18:48</div>'
+            + _dp_rows_or_empty +
+            '</div>'
+            '</div>'
+        )
+        st.markdown(_day_pulse_html, unsafe_allow_html=True)
 
         st.markdown("""
         <div class="gh-card">
