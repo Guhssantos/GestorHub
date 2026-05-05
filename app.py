@@ -765,45 +765,122 @@ def pagina_inicio():
         if eventos == "EXPIRADO":
             st.session_state.clear(); st.rerun()
 
-        total = len(eventos)
-        cores = ["#1A4F8A","#1C6C4E","#8C5A00","#B83232","#6B3A8C"]
-        rows  = ""
-        if total == 0:
-            rows = '<div class="empty-box"><div class="ei">🎉</div><p>Nenhum evento neste dia.</p></div>'
-        else:
-            for i, ev in enumerate(eventos):
-                cor   = cores[i % len(cores)]
-                titre = html_lib.escape(str(ev.get("subject") or "Sem título"))
-                if ev.get("_allday"):
-                    btn = '<span class="allday-badge">Dia todo</span>'; hi = hf = "–"
-                else:
-                    hi  = _parse_horario(ev,"start"); hf = _parse_horario(ev,"end")
-                    lnk = (ev.get("onlineMeeting") or {}).get("joinUrl") or ev.get("onlineMeetingUrl","")
-                    btn = f'<a href="{lnk}" target="_blank" class="btn-join">Entrar</a>' if lnk else '<span class="no-link">Sem link</span>'
+        # ── Janela fixa ──────────────────────────────────────────────────────
+        _TL_START = datetime(data_sel.year, data_sel.month, data_sel.day, 8,  0, tzinfo=TZ_SP)
+        _TL_END   = datetime(data_sel.year, data_sel.month, data_sel.day, 18, 48, tzinfo=TZ_SP)
+
+        # ── Coleta eventos válidos com metadados ─────────────────────────────
+        _ev_data = []   # (s, e, subject, link, platform)
+        for ev in eventos:
+            if ev.get("_allday"):
+                continue
+            try:
+                s = pd.to_datetime(ev["start"]["dateTime"])
+                e = pd.to_datetime(ev["end"]["dateTime"])
+                if s.tzinfo is None: s = s.tz_localize("UTC")
+                if e.tzinfo is None: e = e.tz_localize("UTC")
+                s = s.tz_convert(TZ_SP)
+                e = e.tz_convert(TZ_SP)
+                s = max(s, _TL_START)
+                e = min(e, _TL_END)
+                if s >= e:
+                    continue
+                lnk = (ev.get("onlineMeeting") or {}).get("joinUrl") or ev.get("onlineMeetingUrl","")
                 u   = ev.get("onlineMeetingUrl","") or ""
-                plt = "Microsoft Teams" if "teams.microsoft" in u else "Zoom" if "zoom.us" in u else "Google Meet" if "meet.google" in u else ""
-                dm  = int(_duracao_min(ev))
-                dur = (f"{dm//60}h {dm%60}m" if dm>=60 else f"{dm}m") if dm>0 else ""
-                sub = f"{plt} · {dur}" if plt and dur else plt or dur
-                rows += f"""
-                <div class="event-row">
-                  <div class="ev-times"><div class="ev-time">{hi}</div><div class="ev-time">{hf}</div></div>
-                  <div class="ev-bar" style="background:{cor}"></div>
-                  <div class="ev-body">
-                    <div class="ev-title">{titre}</div>
-                    {'<div class="ev-sub">'+sub+'</div>' if sub else ''}
-                  </div>
-                  {btn}
-                </div>"""
+                plt = "Teams" if "teams.microsoft" in u else "Zoom" if "zoom.us" in u else "Meet" if "meet.google" in u else ""
+                _ev_data.append((s, e, str(ev.get("subject") or "Sem título"), lnk, plt))
+            except Exception:
+                continue
+
+        _ev_data.sort(key=lambda x: x[0])
+
+        # ── Mesclar sobrepostos (preserva primeiro subject/link) ─────────────
+        _merged = []  # (s, e, subject, link, platform)
+        for s, e, subj, lnk, plt in _ev_data:
+            if _merged and s <= _merged[-1][1]:
+                ps, pe, psubj, plnk, pplt = _merged[-1]
+                _merged[-1] = (ps, max(pe, e), psubj, plnk, pplt)
+            else:
+                _merged.append((s, e, subj, lnk, plt))
+
+        # ── Construir linha do tempo ─────────────────────────────────────────
+        def _fmt_dur(a, b):
+            d = int((b - a).total_seconds() / 60)
+            if d <= 0: return ""
+            h, m = divmod(d, 60)
+            if h == 0:   return f"{m}min"
+            if m == 0:   return f"{h}h"
+            return f"{h}h{m:02d}"
+
+        _timeline = []   # dicts: type, hi, hf, dur, subject, link, platform
+        cursor = _TL_START
+        for s, e, subj, lnk, plt in _merged:
+            if s > cursor:
+                _timeline.append({"type": "livre", "hi": cursor.strftime("%H:%M"),
+                                   "hf": s.strftime("%H:%M"), "dur": _fmt_dur(cursor, s),
+                                   "subject": "", "link": "", "platform": ""})
+            _timeline.append({"type": "ocupado", "hi": s.strftime("%H:%M"),
+                               "hf": e.strftime("%H:%M"), "dur": _fmt_dur(s, e),
+                               "subject": subj, "link": lnk, "platform": plt})
+            cursor = e
+        if cursor < _TL_END:
+            _timeline.append({"type": "livre", "hi": cursor.strftime("%H:%M"),
+                               "hf": _TL_END.strftime("%H:%M"), "dur": _fmt_dur(cursor, _TL_END),
+                               "subject": "", "link": "", "platform": ""})
+
+        total_ev = len([t for t in _timeline if t["type"] == "ocupado"])
+
+        # ── Gerar HTML dos blocos ────────────────────────────────────────────
+        if not _timeline:
+            tl_rows = '<div class="empty-box"><div class="ei">🎉</div><p>Nenhum evento neste dia.</p></div>'
+        else:
+            tl_rows = ""
+            for blk in _timeline:
+                if blk["type"] == "ocupado":
+                    subj_safe = html_lib.escape(blk["subject"])
+                    sub_parts = [p for p in [blk["platform"]] if p]
+                    sub_html  = f'<div class="ev-sub">{" · ".join(sub_parts)}</div>' if sub_parts else ""
+                    btn_html  = (f'<a href="{html_lib.escape(blk["link"])}" target="_blank" class="btn-join">Entrar</a>'
+                                 if blk["link"] else '<span class="no-link">Sem link</span>')
+                    tl_rows += f"""
+                    <div class="tl-row tl-busy">
+                      <div class="tl-times">
+                        <div class="tl-t">{blk["hi"]}</div>
+                        <div class="tl-sep"></div>
+                        <div class="tl-t">{blk["hf"]}</div>
+                      </div>
+                      <div class="tl-bar tl-bar-busy"></div>
+                      <div class="tl-body">
+                        <div class="tl-label-tag tl-tag-busy">Reunião · {blk["dur"]}</div>
+                        <div class="tl-title">{subj_safe}</div>
+                        {sub_html}
+                      </div>
+                      {btn_html}
+                    </div>"""
+                else:
+                    tl_rows += f"""
+                    <div class="tl-row tl-free">
+                      <div class="tl-times">
+                        <div class="tl-t tl-t-free">{blk["hi"]}</div>
+                        <div class="tl-sep tl-sep-free"></div>
+                        <div class="tl-t tl-t-free">{blk["hf"]}</div>
+                      </div>
+                      <div class="tl-bar tl-bar-free"></div>
+                      <div class="tl-body">
+                        <div class="tl-label-tag tl-tag-free">Disponível · {blk["dur"]}</div>
+                      </div>
+                    </div>"""
 
         agenda_html = f"""
         <div class="gh-card">
           <div class="card-hd">
             <span class="card-title">Agenda do dia</span>
-            <span class="card-meta">{total} evento{'s' if total!=1 else ''}</span>
+            <span class="card-meta">{total_ev} reunião{'ões' if total_ev!=1 else ''}</span>
           </div>
-          {rows}
+          {tl_rows}
         </div>"""
+
+        _tl_height = max(140, 56 + len(_timeline) * 72)
         components.html(f"""<!DOCTYPE html><html><head>
         <meta charset="UTF-8">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -814,24 +891,45 @@ def pagina_inicio():
         .card-hd{{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07)}}
         .card-title{{font-size:13px;font-weight:500;color:#0D0D0D}}
         .card-meta{{font-size:11px;color:#8A8A8A}}
-        .event-row{{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid rgba(13,13,13,.06);transition:background .1s;font-family:'DM Sans',sans-serif}}
-        .event-row:last-child{{border-bottom:none}}
-        .event-row:hover{{background:#F5F3EF}}
-        .ev-times{{width:48px;flex-shrink:0;text-align:right}}
-        .ev-time{{font-family:'DM Mono',monospace;font-size:11px;color:#8A8A8A;line-height:1.5}}
-        .ev-bar{{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:36px}}
-        .ev-body{{flex:1;min-width:0}}
-        .ev-title{{font-size:13px;font-weight:500;color:#0D0D0D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-        .ev-sub{{font-size:11px;color:#8A8A8A;margin-top:2px}}
-        .btn-join{{font-size:11px;font-weight:500;padding:6px 13px;border-radius:6px;background:#0D0D0D;color:#fff!important;border:none;text-decoration:none!important;flex-shrink:0;transition:opacity .12s;font-family:'DM Sans',sans-serif;cursor:pointer}}
+
+        /* timeline rows */
+        .tl-row{{display:flex;align-items:stretch;gap:12px;padding:10px 20px;border-bottom:1px solid rgba(13,13,13,.05);transition:background .1s;font-family:'DM Sans',sans-serif}}
+        .tl-row:last-child{{border-bottom:none}}
+        .tl-busy:hover{{background:#F9F8F6}}
+        .tl-free{{background:#FAFAF8}}
+        .tl-free:hover{{background:#F5F3EF}}
+
+        /* time column */
+        .tl-times{{display:flex;flex-direction:column;align-items:flex-end;width:44px;flex-shrink:0;padding-top:2px;gap:3px}}
+        .tl-t{{font-family:'DM Mono',monospace;font-size:10px;color:#8A8A8A;line-height:1}}
+        .tl-t-free{{color:#AAAAAA}}
+        .tl-sep{{flex:1;width:1px;background:rgba(13,13,13,.10);align-self:center;min-height:14px;margin:3px 0}}
+        .tl-sep-free{{background:rgba(13,13,13,.06)}}
+
+        /* accent bar */
+        .tl-bar{{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:40px}}
+        .tl-bar-busy{{background:#1A4F8A}}
+        .tl-bar-free{{background:#D6EDE5}}
+
+        /* body */
+        .tl-body{{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}}
+        .tl-label-tag{{display:inline-flex;align-items:center;font-size:10px;font-weight:500;letter-spacing:.04em;padding:2px 7px;border-radius:4px;width:fit-content}}
+        .tl-tag-busy{{background:#E8EEF6;color:#1A4F8A}}
+        .tl-tag-free{{background:#D6EDE5;color:#1C6C4E}}
+        .tl-title{{font-size:13px;font-weight:500;color:#0D0D0D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+        .tl-sub{{font-size:11px;color:#8A8A8A}}
+
+        /* buttons */
+        .btn-join{{font-size:11px;font-weight:500;padding:6px 13px;border-radius:6px;background:#0D0D0D;color:#fff!important;border:none;text-decoration:none!important;flex-shrink:0;transition:opacity .12s;font-family:'DM Sans',sans-serif;cursor:pointer;align-self:center}}
         .btn-join:hover{{opacity:.75}}
-        .no-link{{font-size:11px;color:#CCC;flex-shrink:0}}
-        .allday-badge{{font-size:10px;font-weight:500;padding:3px 8px;border-radius:4px;background:#F0EDE8;color:#8A8A8A;flex-shrink:0}}
+        .no-link{{font-size:11px;color:#CCC;flex-shrink:0;align-self:center}}
+
+        /* empty */
         .empty-box{{text-align:center;padding:36px 20px}}
         .empty-box .ei{{font-size:26px}}
         .empty-box p{{font-size:13px;color:#8A8A8A;margin-top:8px}}
         </style></head><body>{agenda_html}</body></html>""",
-        height=max(120, 68 + total * 70), scrolling=False)
+        height=_tl_height, scrolling=False)
 
     with col_side:
         # ── DAY PULSE ── janela fixa 08:00–18:48 (648 min) ──────────────────
