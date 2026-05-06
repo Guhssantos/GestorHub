@@ -1183,11 +1183,68 @@ def pagina_inicio():
         )
         st.markdown(_dp_html, unsafe_allow_html=True)
 
-        st.markdown("""
-        <div class="gh-card">
-          <div class="card-hd"><span class="card-title">Calendário</span></div>
-        """, unsafe_allow_html=True)
+        # ── Reuniões do dia selecionado para o card Calendário ────────────────
+        _reunioes_cal = []
+        for ev in eventos:
+            if ev.get("_allday"):
+                continue
+            try:
+                s = pd.to_datetime(ev["start"]["dateTime"])
+                e = pd.to_datetime(ev["end"]["dateTime"])
+                if s.tzinfo is None: s = s.tz_localize("UTC")
+                if e.tzinfo is None: e = e.tz_localize("UTC")
+                s = s.tz_convert(TZ_SP)
+                e = e.tz_convert(TZ_SP)
+                _reunioes_cal.append({
+                    "hi":    s.strftime("%H:%M"),
+                    "hf":    e.strftime("%H:%M"),
+                    "subj":  html_lib.escape(str(ev.get("subject") or "Sem título")),
+                    "link":  (ev.get("onlineMeeting") or {}).get("joinUrl") or ev.get("onlineMeetingUrl",""),
+                })
+            except Exception:
+                continue
+        _reunioes_cal.sort(key=lambda x: x["hi"])
+
+        # Montar HTML da lista de reuniões do dia
+        _dias_semana = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"]
+        _sel_label = ("Hoje" if data_sel == hoje_sp
+                      else f"{_dias_semana[data_sel.weekday()]}, {data_sel.day} {MESES_ABR[data_sel.month-1]}")
+        if _reunioes_cal:
+            _meet_rows = ""
+            for r in _reunioes_cal:
+                _btn = (f'<a href="{html_lib.escape(r["link"])}" target="_blank" class="cal-meet-btn">Entrar</a>'
+                        if r["link"] else "")
+                _meet_rows += f"""
+                <div class="cal-meet-row">
+                  <div class="cal-meet-times">
+                    <span class="cal-meet-t">{r["hi"]}</span>
+                    <span class="cal-meet-t cal-meet-t2">{r["hf"]}</span>
+                  </div>
+                  <div class="cal-meet-bar"></div>
+                  <div class="cal-meet-body">
+                    <span class="cal-meet-title">{r["subj"]}</span>
+                  </div>
+                  {_btn}
+                </div>"""
+            _meetings_html = f"""
+            <div class="cal-meet-section">
+              <div class="cal-meet-hd">
+                <span class="cal-meet-hd-label">{_sel_label}</span>
+                <span class="cal-meet-hd-count">{len(_reunioes_cal)} reunião{'ões' if len(_reunioes_cal)!=1 else ''}</span>
+              </div>
+              {_meet_rows}
+            </div>"""
+        else:
+            _meetings_html = f"""
+            <div class="cal-meet-section">
+              <div class="cal-meet-hd">
+                <span class="cal-meet-hd-label">{_sel_label}</span>
+              </div>
+              <div class="cal-empty">🎉 Dia livre</div>
+            </div>"""
+
         cal_inner = _mini_cal_html(data_sel, view_month=cal_month)
+        _cal_height = 240 + 52 + len(_reunioes_cal) * 48
         components.html(
             f"""<!DOCTYPE html><html><head>
             <meta charset="UTF-8">
@@ -1195,20 +1252,61 @@ def pagina_inicio():
             <style>
             *{{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',system-ui,sans-serif}}
             html,body{{background:#fff;padding:0}}
+
+            /* card shell */
+            .cal-card-hd{{display:flex;align-items:center;justify-content:space-between;
+                          padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07)}}
+            .cal-card-title{{font-size:13px;font-weight:500;color:#0D0D0D}}
+
+            /* mini-calendar */
             .mini-cal{{padding:13px 20px}}
             .mcal-nav{{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}}
             .mcal-mon{{font-size:12px;font-weight:500;color:#0D0D0D}}
             .cal-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
-            .cal-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;padding:3px 0;letter-spacing:.04em;text-transform:uppercase}}
-            .cal-day{{font-size:11px;font-family:'DM Mono',monospace;text-align:center;padding:5px 2px;border-radius:5px;color:#0D0D0D}}
+            .cal-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;padding:3px 0;
+                      letter-spacing:.04em;text-transform:uppercase}}
+            .cal-day{{font-size:11px;font-family:'DM Mono',monospace;text-align:center;
+                      padding:5px 2px;border-radius:5px;color:#0D0D0D}}
             .cal-day:hover:not(.out){{background:#F5F3EF;cursor:pointer}}
             .cal-day.today{{background:#0D0D0D;color:#fff}}
             .cal-day.sel:not(.today){{background:#E8E5DF}}
             .cal-day.out{{color:rgba(13,13,13,.18);pointer-events:none}}
-            </style></head><body>{cal_inner}</body></html>""",
-            height=240, scrolling=False
+
+            /* meetings list */
+            .cal-meet-section{{border-top:1px solid rgba(13,13,13,.07);padding-bottom:8px}}
+            .cal-meet-hd{{display:flex;align-items:center;justify-content:space-between;
+                          padding:9px 20px 5px}}
+            .cal-meet-hd-label{{font-size:10px;font-weight:600;letter-spacing:.07em;
+                                text-transform:uppercase;color:#8A8A8A}}
+            .cal-meet-hd-count{{font-size:10px;color:#AAAAAA}}
+            .cal-meet-row{{display:flex;align-items:center;gap:9px;padding:7px 20px;
+                           border-bottom:1px solid rgba(13,13,13,.04);transition:background .1s}}
+            .cal-meet-row:last-child{{border-bottom:none}}
+            .cal-meet-row:hover{{background:#F9F8F6}}
+            .cal-meet-times{{display:flex;flex-direction:column;align-items:flex-end;
+                             width:40px;flex-shrink:0}}
+            .cal-meet-t{{font-family:'DM Mono',monospace;font-size:9.5px;color:#8A8A8A;line-height:1.4}}
+            .cal-meet-t2{{color:#BBBBBB}}
+            .cal-meet-bar{{width:3px;border-radius:2px;background:#1A4F8A;
+                           align-self:stretch;min-height:30px;flex-shrink:0}}
+            .cal-meet-body{{flex:1;min-width:0}}
+            .cal-meet-title{{font-size:11.5px;font-weight:500;color:#0D0D0D;
+                             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}}
+            .cal-meet-btn{{font-size:10px;font-weight:500;padding:4px 10px;border-radius:5px;
+                           background:#0D0D0D;color:#fff!important;border:none;
+                           text-decoration:none!important;flex-shrink:0;transition:opacity .12s}}
+            .cal-meet-btn:hover{{opacity:.72}}
+            .cal-empty{{padding:12px 20px 16px;font-size:12px;color:#AAAAAA;text-align:center}}
+            </style></head>
+            <body>
+              <div class="cal-card-hd">
+                <span class="cal-card-title">Calendário</span>
+              </div>
+              {cal_inner}
+              {_meetings_html}
+            </body></html>""",
+            height=_cal_height, scrolling=False
         )
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
