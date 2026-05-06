@@ -613,7 +613,29 @@ if _mob_nav_target and _mob_nav_target in _mob_pg_map:
     st.query_params["page"] = _mob_nav_target
     st.rerun()
 
-# Handle calendar date click via query param (fallback for deep iframe contexts)
+# ── LISTENER postMessage do calendário ───────────────────────────────────────
+# Injeta um script no contexto pai (fora do iframe) que escuta mensagens
+# vindas do iframe do calendário e redireciona via query param.
+components.html("""
+<script>
+(function(){
+  if(window._calListenerReady) return;
+  window._calListenerReady = true;
+  window.addEventListener("message", function(ev){
+    var d = ev.data;
+    if(!d || typeof d !== "object") return;
+    if(d.type !== "cal_date" && d.type !== "cal_month") return;
+    var iso = d.value;
+    if(!iso || !/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) return;
+    var url = new URL(window.location.href);
+    url.searchParams.set(d.type, iso);
+    window.location.href = url.toString();
+  });
+})();
+</script>
+""", height=0, scrolling=False)
+
+# Handle calendar date/month click via query param
 _cal_date_qp = st.query_params.get("cal_date", "")
 _cal_month_qp = st.query_params.get("cal_month", "")
 if _cal_date_qp:
@@ -633,6 +655,7 @@ elif _cal_month_qp:
         st.rerun()
     except (ValueError, TypeError):
         pass
+
 
 _mob_btns = ""
 for _i, (_ico, _lbl, _pg_key) in enumerate(_mob_nav_items):
@@ -685,7 +708,7 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date, view_month: date = None) -> str:
-    """Static mini-calendar used inside the sidebar card (desktop). Clicking navigates."""
+    """Mini-calendar. Usa postMessage para comunicar cliques ao Streamlit."""
     hoje  = datetime.now(tz=TZ_SP).date()
     vm    = view_month or data_sel
     y, m  = vm.year, vm.month
@@ -699,7 +722,6 @@ def _mini_cal_html(data_sel: date, view_month: date = None) -> str:
         cls = "cal-day" + (" today" if dt == hoje else " sel" if dt == data_sel else "")
         cells += f'<div class="{cls}" onclick="pickDate(\'{iso}\')" style="cursor:pointer">{d}</div>'
 
-    # prev / next month
     if m == 1: prev_y, prev_m = y-1, 12
     else:      prev_y, prev_m = y,   m-1
     if m == 12: next_y, next_m = y+1, 1
@@ -722,36 +744,12 @@ def _mini_cal_html(data_sel: date, view_month: date = None) -> str:
       </div>
     </div>
     <script>
-    function _sendToStreamlit(paramName, iso){{
-      // Try React synthetic event first (for cal_date only)
-      if(paramName==="cal_date"){{
-        var p=iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
-        var docs=[];
-        try{{docs.push(window.parent.document)}}catch(e){{}}
-        try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-        for(var i=0;i<docs.length;i++){{
-          var inp=docs[i].querySelector('[data-testid="stDateInput"] input');
-          if(inp){{
-            var sv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
-            sv.set.call(inp,fmt);
-            inp.dispatchEvent(new Event("input",{{bubbles:true}}));
-            inp.dispatchEvent(new Event("change",{{bubbles:true}}));
-            return;
-          }}
-        }}
-      }}
-      // Fallback: query param navigation
-      var target=window.top||window.parent||window;
-      try{{
-        var url=new URL(target.location.href);
-        url.searchParams.set(paramName,iso);
-        target.location.href=url.toString();
-      }}catch(e){{
-        window.parent.location.href="?"+paramName+"="+iso;
-      }}
+    function pickDate(iso){{
+      window.parent.postMessage({{type:"cal_date", value:iso}}, "*");
     }}
-    function pickDate(iso){{ _sendToStreamlit("cal_date", iso); }}
-    function navMonth(iso){{ _sendToStreamlit("cal_month", iso); }}
+    function navMonth(iso){{
+      window.parent.postMessage({{type:"cal_month", value:iso}}, "*");
+    }}
     </script>"""
 
 
