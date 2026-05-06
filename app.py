@@ -114,7 +114,7 @@ def _duracao_min(ev: dict) -> float:
 
 # ── SESSION STATE ─────────────────────────────────────────────────────────────
 for k, v in {"logado_ms": False, "access_token": None,
-              "data_agenda": None, "usuario": {}}.items():
+              "data_agenda": None, "cal_month": None, "usuario": {}}.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -613,6 +613,27 @@ if _mob_nav_target and _mob_nav_target in _mob_pg_map:
     st.query_params["page"] = _mob_nav_target
     st.rerun()
 
+# Handle calendar date click via query param (fallback for deep iframe contexts)
+_cal_date_qp = st.query_params.get("cal_date", "")
+_cal_month_qp = st.query_params.get("cal_month", "")
+if _cal_date_qp:
+    try:
+        _parsed_cal_date = date.fromisoformat(_cal_date_qp)
+        st.session_state["data_agenda"] = _parsed_cal_date
+        st.session_state["cal_month"] = _parsed_cal_date.replace(day=1)
+        st.query_params.clear()
+        st.rerun()
+    except (ValueError, TypeError):
+        pass
+elif _cal_month_qp:
+    try:
+        _parsed_cal_month = date.fromisoformat(_cal_month_qp)
+        st.session_state["cal_month"] = _parsed_cal_month.replace(day=1)
+        st.query_params.clear()
+        st.rerun()
+    except (ValueError, TypeError):
+        pass
+
 _mob_btns = ""
 for _i, (_ico, _lbl, _pg_key) in enumerate(_mob_nav_items):
     _cls = "mob-nav-btn active" if _i == _mob_active else "mob-nav-btn"
@@ -663,10 +684,11 @@ def topbar(titulo: str, subtitulo: str):
     """, unsafe_allow_html=True)
 
 
-def _mini_cal_html(data_sel: date) -> str:
+def _mini_cal_html(data_sel: date, view_month: date = None) -> str:
     """Static mini-calendar used inside the sidebar card (desktop). Clicking navigates."""
     hoje  = datetime.now(tz=TZ_SP).date()
-    y, m  = data_sel.year, data_sel.month
+    vm    = view_month or data_sel
+    y, m  = vm.year, vm.month
     first = (date(y, m, 1).weekday() + 1) % 7
     total = (date(y, m % 12 + 1, 1) - date(y, m, 1)).days if m < 12 \
             else (date(y+1, 1, 1) - date(y, m, 1)).days
@@ -700,24 +722,36 @@ def _mini_cal_html(data_sel: date) -> str:
       </div>
     </div>
     <script>
-    function _sendDate(iso){{
-      var p=iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
-      var docs=[];
-      try{{docs.push(window.parent.document)}}catch(e){{}}
-      try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
-      for(var i=0;i<docs.length;i++){{
-        var inp=docs[i].querySelector('[data-testid="stDateInput"] input');
-        if(inp){{
-          var sv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
-          sv.set.call(inp,fmt);
-          inp.dispatchEvent(new Event("input",{{bubbles:true}}));
-          inp.dispatchEvent(new Event("change",{{bubbles:true}}));
-          return;
+    function _sendToStreamlit(paramName, iso){{
+      // Try React synthetic event first (for cal_date only)
+      if(paramName==="cal_date"){{
+        var p=iso.split("-"),fmt=p[1]+"/"+p[2]+"/"+p[0];
+        var docs=[];
+        try{{docs.push(window.parent.document)}}catch(e){{}}
+        try{{if(window.top!==window.parent)docs.push(window.top.document)}}catch(e){{}}
+        for(var i=0;i<docs.length;i++){{
+          var inp=docs[i].querySelector('[data-testid="stDateInput"] input');
+          if(inp){{
+            var sv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,"value");
+            sv.set.call(inp,fmt);
+            inp.dispatchEvent(new Event("input",{{bubbles:true}}));
+            inp.dispatchEvent(new Event("change",{{bubbles:true}}));
+            return;
+          }}
         }}
       }}
+      // Fallback: query param navigation
+      var target=window.top||window.parent||window;
+      try{{
+        var url=new URL(target.location.href);
+        url.searchParams.set(paramName,iso);
+        target.location.href=url.toString();
+      }}catch(e){{
+        window.parent.location.href="?"+paramName+"="+iso;
+      }}
     }}
-    function pickDate(iso){{ _sendDate(iso); }}
-    function navMonth(iso){{ _sendDate(iso); }}
+    function pickDate(iso){{ _sendToStreamlit("cal_date", iso); }}
+    function navMonth(iso){{ _sendToStreamlit("cal_month", iso); }}
     </script>"""
 
 
@@ -776,12 +810,18 @@ def pagina_inicio():
     if st.session_state["data_agenda"] is None:
         st.session_state["data_agenda"] = hoje_sp
     data_sel = st.session_state["data_agenda"]
+    # Keep cal_month in sync with data_agenda (unless user navigated month independently)
+    if st.session_state["cal_month"] is None:
+        st.session_state["cal_month"] = data_sel.replace(day=1)
+    cal_month = st.session_state["cal_month"]
     label    = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_ABR[data_sel.month-1]} {data_sel.year}"
 
     data_input = st.date_input("data_oculta", value=data_sel,
                                key="date_picker_hidden", label_visibility="collapsed")
     if data_input != data_sel:
-        st.session_state["data_agenda"] = data_input; st.rerun()
+        st.session_state["data_agenda"] = data_input
+        st.session_state["cal_month"] = data_input.replace(day=1)
+        st.rerun()
 
     components.html(_calendar_widget(label, hoje_sp.isoformat(), data_sel.isoformat()),
                     height=52, scrolling=False)
@@ -1147,7 +1187,7 @@ def pagina_inicio():
         <div class="gh-card">
           <div class="card-hd"><span class="card-title">Calendário</span></div>
         """, unsafe_allow_html=True)
-        cal_inner = _mini_cal_html(data_sel)
+        cal_inner = _mini_cal_html(data_sel, view_month=cal_month)
         components.html(
             f"""<!DOCTYPE html><html><head>
             <meta charset="UTF-8">
