@@ -248,18 +248,7 @@ div[data-testid="stDateInput"] {
 .prog-track   { height:4px; background:#F0EDE8; border-radius:99px; overflow:hidden; }
 .prog-fill    { height:100%; border-radius:99px; }
 
-/* MINI CAL */
-.mini-cal { padding:13px 20px; }
-.mcal-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
-.mcal-mon { font-size:12px; font-weight:500; color:#0D0D0D; }
-.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
-.cal-dow  { font-size:9px; font-weight:600; color:#AAAAAA; text-align:center;
-            padding:3px 0; letter-spacing:.04em; text-transform:uppercase; }
-.cal-day  { font-size:11px; font-family:'DM Mono',monospace; text-align:center;
-            padding:5px 2px; border-radius:5px; color:#0D0D0D; }
-.cal-day.today { background:#0D0D0D; color:#fff; }
-.cal-day.sel:not(.today) { background:#E8E5DF; }
-.cal-day.out  { color:rgba(13,13,13,.18); }
+/* MINI CAL — estilos movidos para dentro do components.html (rc-* classes) */
 
 /* DAY PULSE TIMELINE */
 .dp-tl-wrap { padding:0 0 12px; display:flex; flex-direction:column; }
@@ -708,39 +697,71 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date, view_month: date = None) -> str:
-    """Mini-calendar. Usa postMessage para comunicar cliques ao Streamlit."""
+    """Mini-calendar estilo React Aria — cliques funcionam via st.query_params."""
     hoje  = datetime.now(tz=TZ_SP).date()
     vm    = view_month or data_sel
     y, m  = vm.year, vm.month
-    first = (date(y, m, 1).weekday() + 1) % 7
+    first = (date(y, m, 1).weekday() + 1) % 7   # domingo = 0
     total = (date(y, m % 12 + 1, 1) - date(y, m, 1)).days if m < 12 \
             else (date(y+1, 1, 1) - date(y, m, 1)).days
-    cells = '<div class="cal-day out"></div>' * first
-    for d in range(1, total + 1):
-        dt  = date(y, m, d)
-        iso = dt.isoformat()
-        cls = "cal-day" + (" today" if dt == hoje else " sel" if dt == data_sel else "")
-        cells += f'<div class="{cls}" onclick="pickDate(\'{iso}\')" style="cursor:pointer">{d}</div>'
 
-    if m == 1: prev_y, prev_m = y-1, 12
-    else:      prev_y, prev_m = y,   m-1
+    if m == 1:  prev_y, prev_m = y-1, 12
+    else:       prev_y, prev_m = y,   m-1
     if m == 12: next_y, next_m = y+1, 1
     else:       next_y, next_m = y,   m+1
 
+    # ── Células ──────────────────────────────────────────────────────────────
+    cells = '<div class="rc-cell rc-out"></div>' * first
+    for d in range(1, total + 1):
+        dt   = date(y, m, d)
+        iso  = dt.isoformat()
+        is_today = (dt == hoje)
+        is_sel   = (dt == data_sel)
+
+        extra_cls = ""
+        dot_html  = ""
+        if is_today:
+            extra_cls += " rc-today"
+            dot_html   = '<span class="rc-dot"></span>'
+        if is_sel and not is_today:
+            extra_cls += " rc-sel"
+        if is_sel and is_today:
+            extra_cls += " rc-sel-today"
+
+        cells += (
+            f'<div class="rc-cell{extra_cls}" '
+            f'onclick="pickDate(\'{iso}\')" tabindex="0" '
+            f'role="button" aria-label="{dt.strftime("%d/%m/%Y")}">'
+            f'{d}{dot_html}</div>'
+        )
+
     return f"""
-    <div class="mini-cal">
-      <div class="mcal-nav">
-        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
-              onclick="navMonth('{date(prev_y,prev_m,1).isoformat()}')">&#8249;</span>
-        <span class="mcal-mon">{MESES_PT[m-1]} {y}</span>
-        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
-              onclick="navMonth('{date(next_y,next_m,1).isoformat()}')">&#8250;</span>
+    <div class="rc-cal">
+      <div class="rc-header">
+        <button class="rc-nav-btn" onclick="navMonth('{date(prev_y,prev_m,1).isoformat()}')"
+                aria-label="Mês anterior">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <span class="rc-month-label">{MESES_PT[m-1]} {y}</span>
+        <button class="rc-nav-btn" onclick="navMonth('{date(next_y,next_m,1).isoformat()}')"
+                aria-label="Próximo mês">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
       </div>
-      <div class="cal-grid">
-        <div class="cal-dow">D</div><div class="cal-dow">S</div>
-        <div class="cal-dow">T</div><div class="cal-dow">Q</div>
-        <div class="cal-dow">Q</div><div class="cal-dow">S</div>
-        <div class="cal-dow">S</div>{cells}
+      <div class="rc-grid">
+        <div class="rc-dow">D</div><div class="rc-dow">S</div>
+        <div class="rc-dow">T</div><div class="rc-dow">Q</div>
+        <div class="rc-dow">Q</div><div class="rc-dow">S</div>
+        <div class="rc-dow">S</div>
+        {cells}
       </div>
     </div>
     <script>
@@ -1242,7 +1263,7 @@ def pagina_inicio():
             </div>"""
 
         cal_inner = _mini_cal_html(data_sel, view_month=cal_month)
-        _cal_height = 240 + 52 + len(_reunioes_cal) * 48
+        _cal_height = 292 + len(_reunioes_cal) * 52
         components.html(
             f"""<!DOCTYPE html><html><head>
             <meta charset="UTF-8">
@@ -1251,27 +1272,78 @@ def pagina_inicio():
             *{{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',system-ui,sans-serif}}
             html,body{{background:#fff;padding:0}}
 
-            /* card shell */
+            /* ── card shell ── */
             .cal-card-hd{{display:flex;align-items:center;justify-content:space-between;
                           padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07)}}
             .cal-card-title{{font-size:13px;font-weight:500;color:#0D0D0D}}
 
-            /* mini-calendar */
-            .mini-cal{{padding:13px 20px}}
-            .mcal-nav{{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}}
-            .mcal-mon{{font-size:12px;font-weight:500;color:#0D0D0D}}
-            .cal-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
-            .cal-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;padding:3px 0;
-                      letter-spacing:.04em;text-transform:uppercase}}
-            .cal-day{{font-size:11px;font-family:'DM Mono',monospace;text-align:center;
-                      padding:5px 2px;border-radius:5px;color:#0D0D0D}}
-            .cal-day:hover:not(.out){{background:#F5F3EF;cursor:pointer}}
-            .cal-day.today{{background:#0D0D0D;color:#fff}}
-            .cal-day.sel:not(.today){{background:#E8E5DF}}
-            .cal-day.out{{color:rgba(13,13,13,.18);pointer-events:none}}
+            /* ── React-Aria-style mini calendar ── */
+            .rc-cal{{padding:12px 16px 8px}}
 
-            /* meetings list */
-            .cal-meet-section{{border-top:1px solid rgba(13,13,13,.07);padding-bottom:8px}}
+            .rc-header{{display:flex;align-items:center;justify-content:space-between;
+                        margin-bottom:8px;padding-bottom:4px}}
+            .rc-month-label{{font-size:12.5px;font-weight:500;color:#0D0D0D;
+                             flex:1;text-align:center;letter-spacing:-.1px}}
+
+            .rc-nav-btn{{
+              display:flex;align-items:center;justify-content:center;
+              width:28px;height:28px;border-radius:7px;border:none;
+              background:transparent;cursor:pointer;
+              color:rgba(13,13,13,.40);transition:background .12s,color .12s;
+              flex-shrink:0;
+            }}
+            .rc-nav-btn:hover{{background:#F5F3EF;color:#0D0D0D}}
+            .rc-nav-btn:focus-visible{{outline:2px solid rgba(13,13,13,.25);outline-offset:1px}}
+
+            .rc-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
+
+            .rc-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;
+                     padding:2px 0 5px;letter-spacing:.05em;text-transform:uppercase}}
+
+            .rc-cell{{
+              position:relative;
+              display:flex;align-items:center;justify-content:center;
+              font-family:'DM Mono',monospace;
+              font-size:11.5px;color:#0D0D0D;
+              height:30px;border-radius:7px;
+              border:1px solid transparent;
+              cursor:pointer;
+              transition:background .1s,color .1s,border-color .1s;
+              user-select:none;
+            }}
+            .rc-cell:hover:not(.rc-out){{background:#F5F3EF}}
+            .rc-cell:focus-visible{{outline:2px solid rgba(13,13,13,.20);outline-offset:1px}}
+
+            /* today — dark pill */
+            .rc-cell.rc-today{{
+              background:#0D0D0D !important;color:#fff !important;
+              font-weight:500;
+            }}
+            /* selected — subtle warm tint */
+            .rc-cell.rc-sel{{
+              background:#E8E5DF;color:#0D0D0D;font-weight:500;
+              border-color:rgba(13,13,13,.08);
+            }}
+            /* selected AND today */
+            .rc-cell.rc-sel-today{{
+              background:#0D0D0D !important;color:#fff !important;
+            }}
+            /* out-of-month */
+            .rc-cell.rc-out{{
+              color:rgba(13,13,13,.15);pointer-events:none;cursor:default;
+            }}
+
+            /* today dot */
+            .rc-dot{{
+              position:absolute;bottom:3px;left:50%;
+              transform:translateX(-50%);
+              width:3px;height:3px;border-radius:50%;
+              background:#fff;
+              pointer-events:none;
+            }}
+
+            /* ── meetings list ── */
+            .cal-meet-section{{border-top:1px solid rgba(13,13,13,.07);padding-bottom:6px}}
             .cal-meet-hd{{display:flex;align-items:center;justify-content:space-between;
                           padding:9px 20px 5px}}
             .cal-meet-hd-label{{font-size:10px;font-weight:600;letter-spacing:.07em;
