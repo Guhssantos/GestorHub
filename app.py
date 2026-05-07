@@ -248,7 +248,18 @@ div[data-testid="stDateInput"] {
 .prog-track   { height:4px; background:#F0EDE8; border-radius:99px; overflow:hidden; }
 .prog-fill    { height:100%; border-radius:99px; }
 
-/* MINI CAL — estilos movidos para dentro do components.html (rc-* classes) */
+/* MINI CAL */
+.mini-cal { padding:13px 20px; }
+.mcal-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
+.mcal-mon { font-size:12px; font-weight:500; color:#0D0D0D; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.cal-dow  { font-size:9px; font-weight:600; color:#AAAAAA; text-align:center;
+            padding:3px 0; letter-spacing:.04em; text-transform:uppercase; }
+.cal-day  { font-size:11px; font-family:'DM Mono',monospace; text-align:center;
+            padding:5px 2px; border-radius:5px; color:#0D0D0D; }
+.cal-day.today { background:#0D0D0D; color:#fff; }
+.cal-day.sel:not(.today) { background:#E8E5DF; }
+.cal-day.out  { color:rgba(13,13,13,.18); }
 
 /* DAY PULSE TIMELINE */
 .dp-tl-wrap { padding:0 0 12px; display:flex; flex-direction:column; }
@@ -595,56 +606,32 @@ _mob_pg_map = {"inicio": "🏠  Início", "resumos": "🎥  Resumos tl;dv", "cha
 # Check if a mobile nav button was pressed via query param set by JS
 _mob_nav_target = st.query_params.get("mob_nav", "")
 if _mob_nav_target and _mob_nav_target in _mob_pg_map:
-    # Map to selectbox value and clear the param
     _new_page_label = _mob_pg_map[_mob_nav_target]
     _page_index = {"🏠  Início": 0, "🎥  Resumos tl;dv": 1, "📊  Chamados": 2}[_new_page_label]
     st.query_params.clear()
     st.query_params["page"] = _mob_nav_target
     st.rerun()
 
-# ── LISTENER postMessage do calendário ───────────────────────────────────────
-# Injeta um script no contexto pai (fora do iframe) que escuta mensagens
-# vindas do iframe do calendário e redireciona via query param.
-components.html("""
-<script>
-(function(){
-  if(window._calListenerReady) return;
-  window._calListenerReady = true;
-  window.addEventListener("message", function(ev){
-    var d = ev.data;
-    if(!d || typeof d !== "object") return;
-    if(d.type !== "cal_date" && d.type !== "cal_month") return;
-    var iso = d.value;
-    if(!iso || !/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) return;
-    var url = new URL(window.location.href);
-    url.searchParams.set(d.type, iso);
-    window.location.href = url.toString();
-  });
-})();
-</script>
-""", height=0, scrolling=False)
-
-# Handle calendar date/month click via query param
-_cal_date_qp = st.query_params.get("cal_date", "")
+# Handle mini-calendar date click (same query-param pattern as mob_nav)
+_cal_date_qp  = st.query_params.get("cal_date",  "")
 _cal_month_qp = st.query_params.get("cal_month", "")
 if _cal_date_qp:
     try:
-        _parsed_cal_date = date.fromisoformat(_cal_date_qp)
-        st.session_state["data_agenda"] = _parsed_cal_date
-        st.session_state["cal_month"] = _parsed_cal_date.replace(day=1)
+        _d = date.fromisoformat(_cal_date_qp)
+        st.session_state["data_agenda"] = _d
+        st.session_state["cal_month"]   = _d.replace(day=1)
         st.query_params.clear()
         st.rerun()
     except (ValueError, TypeError):
-        pass
+        st.query_params.pop("cal_date", None)
 elif _cal_month_qp:
     try:
-        _parsed_cal_month = date.fromisoformat(_cal_month_qp)
-        st.session_state["cal_month"] = _parsed_cal_month.replace(day=1)
+        _m = date.fromisoformat(_cal_month_qp)
+        st.session_state["cal_month"] = _m.replace(day=1)
         st.query_params.clear()
         st.rerun()
     except (ValueError, TypeError):
-        pass
-
+        st.query_params.pop("cal_month", None)
 
 _mob_btns = ""
 for _i, (_ico, _lbl, _pg_key) in enumerate(_mob_nav_items):
@@ -697,80 +684,64 @@ def topbar(titulo: str, subtitulo: str):
 
 
 def _mini_cal_html(data_sel: date, view_month: date = None) -> str:
-    """Mini-calendar estilo React Aria — cliques funcionam via st.query_params."""
+    """Mini-calendar rendered inside a components.html iframe.
+    Uses window.top.location.href (same proven pattern as mob_nav) to communicate
+    back to Python — avoids cross-origin DOM access which silently fails."""
     hoje  = datetime.now(tz=TZ_SP).date()
-    vm    = view_month or data_sel
+    vm    = (view_month or data_sel).replace(day=1)
     y, m  = vm.year, vm.month
-    first = (date(y, m, 1).weekday() + 1) % 7   # domingo = 0
+    first = (date(y, m, 1).weekday() + 1) % 7
     total = (date(y, m % 12 + 1, 1) - date(y, m, 1)).days if m < 12 \
             else (date(y+1, 1, 1) - date(y, m, 1)).days
+    cells = '<div class="cal-day out"></div>' * first
+    for d in range(1, total + 1):
+        dt  = date(y, m, d)
+        iso = dt.isoformat()
+        cls = "cal-day" + (" today" if dt == hoje else " sel" if dt == data_sel else "")
+        cells += f'<div class="{cls}" onclick="pickDate(\'{iso}\')" style="cursor:pointer">{d}</div>'
 
     if m == 1:  prev_y, prev_m = y-1, 12
     else:       prev_y, prev_m = y,   m-1
     if m == 12: next_y, next_m = y+1, 1
     else:       next_y, next_m = y,   m+1
 
-    # ── Células ──────────────────────────────────────────────────────────────
-    cells = '<div class="rc-cell rc-out"></div>' * first
-    for d in range(1, total + 1):
-        dt   = date(y, m, d)
-        iso  = dt.isoformat()
-        is_today = (dt == hoje)
-        is_sel   = (dt == data_sel)
-
-        extra_cls = ""
-        dot_html  = ""
-        if is_today:
-            extra_cls += " rc-today"
-            dot_html   = '<span class="rc-dot"></span>'
-        if is_sel and not is_today:
-            extra_cls += " rc-sel"
-        if is_sel and is_today:
-            extra_cls += " rc-sel-today"
-
-        cells += (
-            f'<div class="rc-cell{extra_cls}" '
-            f'onclick="pickDate(\'{iso}\')" tabindex="0" '
-            f'role="button" aria-label="{dt.strftime("%d/%m/%Y")}">'
-            f'{d}{dot_html}</div>'
-        )
-
     return f"""
-    <div class="rc-cal">
-      <div class="rc-header">
-        <button class="rc-nav-btn" onclick="navMonth('{date(prev_y,prev_m,1).isoformat()}')"
-                aria-label="Mês anterior">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
-        <span class="rc-month-label">{MESES_PT[m-1]} {y}</span>
-        <button class="rc-nav-btn" onclick="navMonth('{date(next_y,next_m,1).isoformat()}')"
-                aria-label="Próximo mês">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
+    <div class="mini-cal">
+      <div class="mcal-nav">
+        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
+              onclick="navMonth('{date(prev_y,prev_m,1).isoformat()}')">&#8249;</span>
+        <span class="mcal-mon">{MESES_PT[m-1]} {y}</span>
+        <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
+              onclick="navMonth('{date(next_y,next_m,1).isoformat()}')">&#8250;</span>
       </div>
-      <div class="rc-grid">
-        <div class="rc-dow">D</div><div class="rc-dow">S</div>
-        <div class="rc-dow">T</div><div class="rc-dow">Q</div>
-        <div class="rc-dow">Q</div><div class="rc-dow">S</div>
-        <div class="rc-dow">S</div>
-        {cells}
+      <div class="cal-grid">
+        <div class="cal-dow">D</div><div class="cal-dow">S</div>
+        <div class="cal-dow">T</div><div class="cal-dow">Q</div>
+        <div class="cal-dow">Q</div><div class="cal-dow">S</div>
+        <div class="cal-dow">S</div>{cells}
       </div>
     </div>
     <script>
-    function pickDate(iso){{
-      window.parent.postMessage({{type:"cal_date", value:iso}}, "*");
+    // Uses window.top.location.href — identical to the mob_nav pattern that works.
+    // Does NOT touch cross-origin DOM (which silently fails in HTTPS iframes).
+    function _calNav(paramName, iso) {{
+      var target = window.top || window.parent || window;
+      try {{
+        var url = new URL(target.location.href);
+        url.searchParams.set(paramName, iso);
+        // Preserve the current page so we don't jump to home
+        if (!url.searchParams.get("page")) {{
+          url.searchParams.set("page", "inicio");
+        }}
+        target.location.href = url.toString();
+      }} catch(e) {{
+        // last-resort fallback
+        try {{ window.parent.location.href = "?page=inicio&" + paramName + "=" + iso; }}
+        catch(e2) {{ window.location.href = "?page=inicio&" + paramName + "=" + iso; }}
+      }}
     }}
-    function navMonth(iso){{
-      window.parent.postMessage({{type:"cal_month", value:iso}}, "*");
-    }}
+    function pickDate(iso)  {{ _calNav("cal_date",  iso); }}
+    function navMonth(iso)  {{ _calNav("cal_month", iso); }}
     </script>"""
 
 
@@ -828,18 +799,19 @@ def pagina_inicio():
     hoje_sp = datetime.now(tz=TZ_SP).date()
     if st.session_state["data_agenda"] is None:
         st.session_state["data_agenda"] = hoje_sp
-    data_sel = st.session_state["data_agenda"]
-    # Keep cal_month in sync with data_agenda (unless user navigated month independently)
-    if st.session_state["cal_month"] is None:
-        st.session_state["cal_month"] = data_sel.replace(day=1)
+    # Initialize cal_month if not set (or sync when data_agenda was changed externally)
+    if st.session_state.get("cal_month") is None:
+        st.session_state["cal_month"] = st.session_state["data_agenda"].replace(day=1)
+
+    data_sel  = st.session_state["data_agenda"]
     cal_month = st.session_state["cal_month"]
-    label    = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_ABR[data_sel.month-1]} {data_sel.year}"
+    label     = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_ABR[data_sel.month-1]} {data_sel.year}"
 
     data_input = st.date_input("data_oculta", value=data_sel,
                                key="date_picker_hidden", label_visibility="collapsed")
     if data_input != data_sel:
         st.session_state["data_agenda"] = data_input
-        st.session_state["cal_month"] = data_input.replace(day=1)
+        st.session_state["cal_month"]   = data_input.replace(day=1)
         st.rerun()
 
     components.html(_calendar_widget(label, hoje_sp.isoformat(), data_sel.isoformat()),
@@ -1202,68 +1174,11 @@ def pagina_inicio():
         )
         st.markdown(_dp_html, unsafe_allow_html=True)
 
-        # ── Reuniões do dia selecionado para o card Calendário ────────────────
-        _reunioes_cal = []
-        for ev in eventos:
-            if ev.get("_allday"):
-                continue
-            try:
-                s = pd.to_datetime(ev["start"]["dateTime"])
-                e = pd.to_datetime(ev["end"]["dateTime"])
-                if s.tzinfo is None: s = s.tz_localize("UTC")
-                if e.tzinfo is None: e = e.tz_localize("UTC")
-                s = s.tz_convert(TZ_SP)
-                e = e.tz_convert(TZ_SP)
-                _reunioes_cal.append({
-                    "hi":    s.strftime("%H:%M"),
-                    "hf":    e.strftime("%H:%M"),
-                    "subj":  html_lib.escape(str(ev.get("subject") or "Sem título")),
-                    "link":  (ev.get("onlineMeeting") or {}).get("joinUrl") or ev.get("onlineMeetingUrl",""),
-                })
-            except Exception:
-                continue
-        _reunioes_cal.sort(key=lambda x: x["hi"])
-
-        # Montar HTML da lista de reuniões do dia
-        _dias_semana = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"]
-        _sel_label = ("Hoje" if data_sel == hoje_sp
-                      else f"{_dias_semana[data_sel.weekday()]}, {data_sel.day} {MESES_ABR[data_sel.month-1]}")
-        if _reunioes_cal:
-            _meet_rows = ""
-            for r in _reunioes_cal:
-                _btn = (f'<a href="{html_lib.escape(r["link"])}" target="_blank" class="cal-meet-btn">Entrar</a>'
-                        if r["link"] else "")
-                _meet_rows += f"""
-                <div class="cal-meet-row">
-                  <div class="cal-meet-times">
-                    <span class="cal-meet-t">{r["hi"]}</span>
-                    <span class="cal-meet-t cal-meet-t2">{r["hf"]}</span>
-                  </div>
-                  <div class="cal-meet-bar"></div>
-                  <div class="cal-meet-body">
-                    <span class="cal-meet-title">{r["subj"]}</span>
-                  </div>
-                  {_btn}
-                </div>"""
-            _meetings_html = f"""
-            <div class="cal-meet-section">
-              <div class="cal-meet-hd">
-                <span class="cal-meet-hd-label">{_sel_label}</span>
-                <span class="cal-meet-hd-count">{len(_reunioes_cal)} reunião{'ões' if len(_reunioes_cal)!=1 else ''}</span>
-              </div>
-              {_meet_rows}
-            </div>"""
-        else:
-            _meetings_html = f"""
-            <div class="cal-meet-section">
-              <div class="cal-meet-hd">
-                <span class="cal-meet-hd-label">{_sel_label}</span>
-              </div>
-              <div class="cal-empty">🎉 Dia livre</div>
-            </div>"""
-
+        st.markdown("""
+        <div class="gh-card">
+          <div class="card-hd"><span class="card-title">Calendário</span></div>
+        """, unsafe_allow_html=True)
         cal_inner = _mini_cal_html(data_sel, view_month=cal_month)
-        _cal_height = 292 + len(_reunioes_cal) * 52
         components.html(
             f"""<!DOCTYPE html><html><head>
             <meta charset="UTF-8">
@@ -1271,112 +1186,20 @@ def pagina_inicio():
             <style>
             *{{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',system-ui,sans-serif}}
             html,body{{background:#fff;padding:0}}
-
-            /* ── card shell ── */
-            .cal-card-hd{{display:flex;align-items:center;justify-content:space-between;
-                          padding:14px 20px;border-bottom:1px solid rgba(13,13,13,.07)}}
-            .cal-card-title{{font-size:13px;font-weight:500;color:#0D0D0D}}
-
-            /* ── React-Aria-style mini calendar ── */
-            .rc-cal{{padding:12px 16px 8px}}
-
-            .rc-header{{display:flex;align-items:center;justify-content:space-between;
-                        margin-bottom:8px;padding-bottom:4px}}
-            .rc-month-label{{font-size:12.5px;font-weight:500;color:#0D0D0D;
-                             flex:1;text-align:center;letter-spacing:-.1px}}
-
-            .rc-nav-btn{{
-              display:flex;align-items:center;justify-content:center;
-              width:28px;height:28px;border-radius:7px;border:none;
-              background:transparent;cursor:pointer;
-              color:rgba(13,13,13,.40);transition:background .12s,color .12s;
-              flex-shrink:0;
-            }}
-            .rc-nav-btn:hover{{background:#F5F3EF;color:#0D0D0D}}
-            .rc-nav-btn:focus-visible{{outline:2px solid rgba(13,13,13,.25);outline-offset:1px}}
-
-            .rc-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
-
-            .rc-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;
-                     padding:2px 0 5px;letter-spacing:.05em;text-transform:uppercase}}
-
-            .rc-cell{{
-              position:relative;
-              display:flex;align-items:center;justify-content:center;
-              font-family:'DM Mono',monospace;
-              font-size:11.5px;color:#0D0D0D;
-              height:30px;border-radius:7px;
-              border:1px solid transparent;
-              cursor:pointer;
-              transition:background .1s,color .1s,border-color .1s;
-              user-select:none;
-            }}
-            .rc-cell:hover:not(.rc-out){{background:#F5F3EF}}
-            .rc-cell:focus-visible{{outline:2px solid rgba(13,13,13,.20);outline-offset:1px}}
-
-            /* today — dark pill */
-            .rc-cell.rc-today{{
-              background:#0D0D0D !important;color:#fff !important;
-              font-weight:500;
-            }}
-            /* selected — subtle warm tint */
-            .rc-cell.rc-sel{{
-              background:#E8E5DF;color:#0D0D0D;font-weight:500;
-              border-color:rgba(13,13,13,.08);
-            }}
-            /* selected AND today */
-            .rc-cell.rc-sel-today{{
-              background:#0D0D0D !important;color:#fff !important;
-            }}
-            /* out-of-month */
-            .rc-cell.rc-out{{
-              color:rgba(13,13,13,.15);pointer-events:none;cursor:default;
-            }}
-
-            /* today dot */
-            .rc-dot{{
-              position:absolute;bottom:3px;left:50%;
-              transform:translateX(-50%);
-              width:3px;height:3px;border-radius:50%;
-              background:#fff;
-              pointer-events:none;
-            }}
-
-            /* ── meetings list ── */
-            .cal-meet-section{{border-top:1px solid rgba(13,13,13,.07);padding-bottom:6px}}
-            .cal-meet-hd{{display:flex;align-items:center;justify-content:space-between;
-                          padding:9px 20px 5px}}
-            .cal-meet-hd-label{{font-size:10px;font-weight:600;letter-spacing:.07em;
-                                text-transform:uppercase;color:#8A8A8A}}
-            .cal-meet-hd-count{{font-size:10px;color:#AAAAAA}}
-            .cal-meet-row{{display:flex;align-items:center;gap:9px;padding:7px 20px;
-                           border-bottom:1px solid rgba(13,13,13,.04);transition:background .1s}}
-            .cal-meet-row:last-child{{border-bottom:none}}
-            .cal-meet-row:hover{{background:#F9F8F6}}
-            .cal-meet-times{{display:flex;flex-direction:column;align-items:flex-end;
-                             width:40px;flex-shrink:0}}
-            .cal-meet-t{{font-family:'DM Mono',monospace;font-size:9.5px;color:#8A8A8A;line-height:1.4}}
-            .cal-meet-t2{{color:#BBBBBB}}
-            .cal-meet-bar{{width:3px;border-radius:2px;background:#1A4F8A;
-                           align-self:stretch;min-height:30px;flex-shrink:0}}
-            .cal-meet-body{{flex:1;min-width:0}}
-            .cal-meet-title{{font-size:11.5px;font-weight:500;color:#0D0D0D;
-                             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}}
-            .cal-meet-btn{{font-size:10px;font-weight:500;padding:4px 10px;border-radius:5px;
-                           background:#0D0D0D;color:#fff!important;border:none;
-                           text-decoration:none!important;flex-shrink:0;transition:opacity .12s}}
-            .cal-meet-btn:hover{{opacity:.72}}
-            .cal-empty{{padding:12px 20px 16px;font-size:12px;color:#AAAAAA;text-align:center}}
-            </style></head>
-            <body>
-              <div class="cal-card-hd">
-                <span class="cal-card-title">Calendário</span>
-              </div>
-              {cal_inner}
-              {_meetings_html}
-            </body></html>""",
-            height=_cal_height, scrolling=False
+            .mini-cal{{padding:13px 20px}}
+            .mcal-nav{{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}}
+            .mcal-mon{{font-size:12px;font-weight:500;color:#0D0D0D}}
+            .cal-grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}}
+            .cal-dow{{font-size:9px;font-weight:600;color:#AAAAAA;text-align:center;padding:3px 0;letter-spacing:.04em;text-transform:uppercase}}
+            .cal-day{{font-size:11px;font-family:'DM Mono',monospace;text-align:center;padding:5px 2px;border-radius:5px;color:#0D0D0D}}
+            .cal-day:hover:not(.out){{background:#F5F3EF;cursor:pointer}}
+            .cal-day.today{{background:#0D0D0D;color:#fff}}
+            .cal-day.sel:not(.today){{background:#E8E5DF}}
+            .cal-day.out{{color:rgba(13,13,13,.18);pointer-events:none}}
+            </style></head><body>{cal_inner}</body></html>""",
+            height=240, scrolling=False
         )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
