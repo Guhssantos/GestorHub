@@ -156,7 +156,9 @@ header[data-testid="stHeader"]          { display: none !important; }
 button[data-testid="collapsedControl"]  { display: none !important; }
 [data-testid="stToolbar"]               { display: none !important; }
 
-div[data-testid="stDateInput"] {
+/* Esconde apenas o date_input oculto do topo (usado pelo _calendar_widget) */
+div[data-testid="stDateInput"]:has(input[aria-label="data_oculta"]),
+div[data-testid="stDateInput"]:has(#date_picker_hidden) {
     position: absolute !important; opacity: 0 !important;
     pointer-events: none !important; height: 0 !important;
     overflow: hidden !important; z-index: -1 !important;
@@ -1153,132 +1155,55 @@ def pagina_inicio():
         )
         st.markdown(_dp_html, unsafe_allow_html=True)
 
+        # ── Calendário nativo ─────────────────────────────────────────────────
         st.markdown("""
-        <div class="gh-card" style="padding-bottom:4px">
+        <div class="gh-card">
           <div class="card-hd"><span class="card-title">Calendário</span></div>
         </div>
         <style>
-        /* ── Mini-calendar native buttons ── */
-        div[data-testid="stHorizontalBlock"].mcal-row > div { padding:0 !important; gap:0 !important; }
-        .mcal-wrap { background:#fff; border-radius:12px; border:1px solid rgba(13,13,13,.07);
-                     padding:13px 16px 10px; margin-top:-1px; }
-        .mcal-hd { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-        .mcal-title { font-size:12px; font-weight:500; color:#0D0D0D; font-family:'DM Sans',sans-serif; }
-        .mcal-dow-row { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; margin-bottom:2px; }
-        .mcal-dow { font-size:9px; font-weight:600; color:#AAAAAA; text-align:center;
-                    padding:2px 0; letter-spacing:.04em; text-transform:uppercase; font-family:'DM Sans',sans-serif; }
-        /* Day buttons */
-        div[data-testid="stHorizontalBlock"].mcal-row button[kind="secondary"] {
-            background:transparent !important; border:none !important; box-shadow:none !important;
-            padding:0 !important; min-height:0 !important; height:26px !important; width:100% !important;
-            font-size:11px !important; font-family:'DM Mono',monospace !important;
-            color:#0D0D0D !important; border-radius:5px !important;
+        /* Integra o date_input nativo ao design do card */
+        div[data-testid="stDateInput"] {
+            position: static !important; opacity: 1 !important;
+            pointer-events: auto !important; height: auto !important;
+            overflow: visible !important; z-index: auto !important;
         }
-        div[data-testid="stHorizontalBlock"].mcal-row button[kind="secondary"]:hover {
-            background:#F5F3EF !important;
+        div[data-testid="stDateInput"] label { display: none !important; }
+        div[data-testid="stDateInput"] input {
+            background: #fff !important;
+            border: 1px solid rgba(13,13,13,.10) !important;
+            border-radius: 8px !important;
+            font-family: 'DM Sans', sans-serif !important;
+            font-size: 13px !important;
+            color: #0D0D0D !important;
+            padding: 8px 12px !important;
         }
-        /* nav arrow buttons */
-        div.mcal-nav-col button[kind="secondary"] {
-            background:transparent !important; border:none !important; box-shadow:none !important;
-            padding:0 !important; min-height:0 !important; color:#8A8A8A !important;
-            font-size:16px !important; height:24px !important;
+        div[data-testid="stDateInput"] > div { border: none !important; background: transparent !important; }
+        /* Popup do calendário */
+        div[data-baseweb="calendar"] {
+            background: #fff !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(13,13,13,.08) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,.10) !important;
+            font-family: 'DM Sans', sans-serif !important;
         }
-        div.mcal-nav-col button[kind="secondary"]:hover { color:#0D0D0D !important; }
+        div[data-baseweb="calendar"] button {
+            font-family: 'DM Sans', sans-serif !important;
+            font-size: 12px !important;
+        }
         </style>
         """, unsafe_allow_html=True)
 
-        # ── Mini-calendar: navigation header ──────────────────────────────────
-        _vm   = cal_month
-        _vy, _vm_n = _vm.year, _vm.month
-        _prev = date(_vy-1, 12, 1) if _vm_n == 1  else date(_vy, _vm_n-1, 1)
-        _next = date(_vy+1, 1,  1) if _vm_n == 12 else date(_vy, _vm_n+1, 1)
-
-        st.markdown('<div class="mcal-wrap">', unsafe_allow_html=True)
-
-        # Navigation row
-        _cn1, _cn2, _cn3 = st.columns([1, 4, 1])
-        with _cn1:
-            st.markdown('<div class="mcal-nav-col">', unsafe_allow_html=True)
-            if st.button("‹", key="mcal_prev"):
-                st.session_state["cal_month"] = _prev
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _cn2:
-            st.markdown(
-                f'<div style="text-align:center;font-size:12px;font-weight:500;'
-                f'color:#0D0D0D;font-family:\'DM Sans\',sans-serif;padding:2px 0">'
-                f'{MESES_PT[_vm_n-1]} {_vy}</div>',
-                unsafe_allow_html=True)
-        with _cn3:
-            st.markdown('<div class="mcal-nav-col">', unsafe_allow_html=True)
-            if st.button("›", key="mcal_next"):
-                st.session_state["cal_month"] = _next
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # Day-of-week header
-        st.markdown(
-            '<div class="mcal-dow-row">'
-            + ''.join(f'<div class="mcal-dow">{d}</div>' for d in ["D","S","T","Q","Q","S","S"])
-            + '</div>',
-            unsafe_allow_html=True)
-
-        # ── Build calendar grid ───────────────────────────────────────────────
-        _hoje_cal = datetime.now(tz=TZ_SP).date()
-        _first_dow = (date(_vy, _vm_n, 1).weekday() + 1) % 7   # 0=Sun
-        _total_days = (_next - date(_vy, _vm_n, 1)).days
-
-        # Flatten cells: None = empty, date = clickable day
-        _cells: list = [None] * _first_dow
-        for _d in range(1, _total_days + 1):
-            _cells.append(date(_vy, _vm_n, _d))
-        # Pad to multiple of 7
-        while len(_cells) % 7:
-            _cells.append(None)
-
-        # Render rows of 7
-        for _row_start in range(0, len(_cells), 7):
-            _row = _cells[_row_start:_row_start + 7]
-            # Add CSS class to this horizontal block via a wrapping div trick
-            st.markdown('<div data-testid="stHorizontalBlock" class="mcal-row" style="display:contents">', unsafe_allow_html=True)
-            _day_cols = st.columns(7)
-            st.markdown('</div>', unsafe_allow_html=True)
-            for _ci, _dt in enumerate(_row):
-                with _day_cols[_ci]:
-                    if _dt is None:
-                        st.markdown('<div style="height:26px"></div>', unsafe_allow_html=True)
-                    else:
-                        # Style: today = black bg, selected = grey bg
-                        if _dt == _hoje_cal:
-                            _btn_style = (
-                                "background:#0D0D0D !important; color:#fff !important;"
-                                "border-radius:5px; font-size:11px; font-family:'DM Mono',monospace;"
-                                "text-align:center; height:26px; line-height:26px; cursor:pointer;"
-                            )
-                            st.markdown(f'<div style="{_btn_style}">{_dt.day}</div>', unsafe_allow_html=True)
-                            # invisible button to capture click
-                            if st.button(str(_dt.day), key=f"mcal_{_dt.isoformat()}", label_visibility="collapsed"):
-                                st.session_state["data_agenda"] = _dt
-                                st.session_state["cal_month"]   = _dt.replace(day=1)
-                                st.rerun()
-                        elif _dt == data_sel:
-                            _btn_style = (
-                                "background:#E8E5DF !important; color:#0D0D0D !important;"
-                                "border-radius:5px; font-size:11px; font-family:'DM Mono',monospace;"
-                                "text-align:center; height:26px; line-height:26px; cursor:pointer;"
-                            )
-                            st.markdown(f'<div style="{_btn_style}">{_dt.day}</div>', unsafe_allow_html=True)
-                            if st.button(str(_dt.day), key=f"mcal_{_dt.isoformat()}", label_visibility="collapsed"):
-                                st.session_state["data_agenda"] = _dt
-                                st.session_state["cal_month"]   = _dt.replace(day=1)
-                                st.rerun()
-                        else:
-                            if st.button(str(_dt.day), key=f"mcal_{_dt.isoformat()}"):
-                                st.session_state["data_agenda"] = _dt
-                                st.session_state["cal_month"]   = _dt.replace(day=1)
-                                st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)  # close mcal-wrap
+        _nova_data = st.date_input(
+            "Selecione uma data",
+            value=data_sel,
+            key="cal_date_picker",
+            label_visibility="collapsed",
+            format="DD/MM/YYYY",
+        )
+        if _nova_data != data_sel:
+            st.session_state["data_agenda"] = _nova_data
+            st.session_state["cal_month"]   = _nova_data.replace(day=1)
+            st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
