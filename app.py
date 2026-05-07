@@ -156,14 +156,8 @@ header[data-testid="stHeader"]          { display: none !important; }
 button[data-testid="collapsedControl"]  { display: none !important; }
 [data-testid="stToolbar"]               { display: none !important; }
 
-/* Esconde o date_input oculto do topo — seleciona o primeiro na página */
-div[data-testid="stDateInput"]:first-of-type {
-    position: absolute !important; opacity: 0 !important;
-    pointer-events: none !important; height: 0 !important;
-    overflow: hidden !important; z-index: -1 !important;
-}
-/* Garante que o calendário (segundo date_input) fique visível */
-div[data-testid="stDateInput"]:not(:first-of-type) {
+/* Todos os date_input visíveis por padrão (o oculto foi removido) */
+div[data-testid="stDateInput"] {
     position: static !important; opacity: 1 !important;
     pointer-events: auto !important; height: auto !important;
     overflow: visible !important; z-index: auto !important;
@@ -793,13 +787,6 @@ def pagina_inicio():
     cal_month = st.session_state["cal_month"]
     label     = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_ABR[data_sel.month-1]} {data_sel.year}"
 
-    data_input = st.date_input("data_oculta", value=data_sel,
-                               key="date_picker_hidden", label_visibility="collapsed")
-    if data_input != data_sel:
-        st.session_state["data_agenda"] = data_input
-        st.session_state["cal_month"]   = data_input.replace(day=1)
-        st.rerun()
-
     components.html(_calendar_widget(label, hoje_sp.isoformat(), data_sel.isoformat()),
                     height=52, scrolling=False)
 
@@ -1168,14 +1155,6 @@ def pagina_inicio():
           </div>
         </div>
         <style>
-        /* Mostra o date_input do calendário (sobrescreve o hide global) */
-        div[data-testid="stDateInput"]:has(input#cal_date_picker),
-        div[data-testid="stDateInput"] + div,
-        .cal-date-wrap div[data-testid="stDateInput"] {
-            position: static !important; opacity: 1 !important;
-            pointer-events: auto !important; height: auto !important;
-            overflow: visible !important; z-index: auto !important;
-        }
         /* Input field */
         div[data-testid="stDateInput"] input {
             background: #fff !important;
