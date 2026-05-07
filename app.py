@@ -156,12 +156,17 @@ header[data-testid="stHeader"]          { display: none !important; }
 button[data-testid="collapsedControl"]  { display: none !important; }
 [data-testid="stToolbar"]               { display: none !important; }
 
-/* Esconde apenas o date_input oculto do topo (usado pelo _calendar_widget) */
-div[data-testid="stDateInput"]:has(input[aria-label="data_oculta"]),
-div[data-testid="stDateInput"]:has(#date_picker_hidden) {
+/* Esconde o date_input oculto do topo — seleciona o primeiro na página */
+div[data-testid="stDateInput"]:first-of-type {
     position: absolute !important; opacity: 0 !important;
     pointer-events: none !important; height: 0 !important;
     overflow: hidden !important; z-index: -1 !important;
+}
+/* Garante que o calendário (segundo date_input) fique visível */
+div[data-testid="stDateInput"]:not(:first-of-type) {
+    position: static !important; opacity: 1 !important;
+    pointer-events: auto !important; height: auto !important;
+    overflow: visible !important; z-index: auto !important;
 }
 
 /* SIDEBAR */
@@ -1155,40 +1160,98 @@ def pagina_inicio():
         )
         st.markdown(_dp_html, unsafe_allow_html=True)
 
-        # ── Calendário nativo ─────────────────────────────────────────────────
+        # ── Calendário nativo — abaixo do Day Pulse ───────────────────────────
         st.markdown("""
-        <div class="gh-card">
-          <div class="card-hd"><span class="card-title">Calendário</span></div>
+        <div class="gh-card" style="padding:14px 20px 16px;">
+          <div class="card-hd" style="padding:0 0 12px 0;border-bottom:1px solid rgba(13,13,13,.07);margin-bottom:0;">
+            <span class="card-title">Calendário</span>
+          </div>
         </div>
         <style>
-        /* Integra o date_input nativo ao design do card */
-        div[data-testid="stDateInput"] {
+        /* Mostra o date_input do calendário (sobrescreve o hide global) */
+        div[data-testid="stDateInput"]:has(input#cal_date_picker),
+        div[data-testid="stDateInput"] + div,
+        .cal-date-wrap div[data-testid="stDateInput"] {
             position: static !important; opacity: 1 !important;
             pointer-events: auto !important; height: auto !important;
             overflow: visible !important; z-index: auto !important;
         }
-        div[data-testid="stDateInput"] label { display: none !important; }
+        /* Input field */
         div[data-testid="stDateInput"] input {
             background: #fff !important;
-            border: 1px solid rgba(13,13,13,.10) !important;
+            border: 1px solid rgba(13,13,13,.12) !important;
             border-radius: 8px !important;
             font-family: 'DM Sans', sans-serif !important;
             font-size: 13px !important;
             color: #0D0D0D !important;
             padding: 8px 12px !important;
+            box-shadow: none !important;
         }
-        div[data-testid="stDateInput"] > div { border: none !important; background: transparent !important; }
-        /* Popup do calendário */
+        div[data-testid="stDateInput"] label { display: none !important; }
+        div[data-testid="stDateInput"] > div { border: none !important; background: transparent !important; box-shadow: none !important; }
+        /* ── Popup do calendário ── */
+        div[data-baseweb="popover"] div[data-baseweb="calendar"],
         div[data-baseweb="calendar"] {
-            background: #fff !important;
+            background: #ffffff !important;
             border-radius: 12px !important;
-            border: 1px solid rgba(13,13,13,.08) !important;
-            box-shadow: 0 8px 32px rgba(0,0,0,.10) !important;
+            border: 1px solid rgba(13,13,13,.10) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,.12) !important;
             font-family: 'DM Sans', sans-serif !important;
         }
+        /* Header do popup (mês/ano) */
+        div[data-baseweb="calendar"] div[data-baseweb="select"] button,
         div[data-baseweb="calendar"] button {
+            background: transparent !important;
+            color: #0D0D0D !important;
             font-family: 'DM Sans', sans-serif !important;
             font-size: 12px !important;
+        }
+        /* Dias normais */
+        div[data-baseweb="calendar"] div[role="gridcell"] button {
+            background: transparent !important;
+            color: #0D0D0D !important;
+            border-radius: 50% !important;
+            font-size: 12px !important;
+        }
+        div[data-baseweb="calendar"] div[role="gridcell"] button:hover {
+            background: #EBF3FF !important;
+            color: #1A6DCC !important;
+        }
+        /* Dia selecionado — azul */
+        div[data-baseweb="calendar"] div[aria-selected="true"] button,
+        div[data-baseweb="calendar"] button[aria-selected="true"] {
+            background: #1A6DCC !important;
+            color: #ffffff !important;
+            border-radius: 50% !important;
+        }
+        /* Hoje — contorno azul claro */
+        div[data-baseweb="calendar"] div[data-today="true"] button {
+            border: 2px solid #1A6DCC !important;
+            color: #1A6DCC !important;
+        }
+        /* Dias fora do mês */
+        div[data-baseweb="calendar"] div[data-outside-month="true"] button {
+            color: #CCCCCC !important;
+        }
+        /* Cabeçalho dias da semana */
+        div[data-baseweb="calendar"] div[data-testid="CalendarHeader"] {
+            color: #8A8A8A !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+        }
+        /* Setas de navegação */
+        div[data-baseweb="calendar"] button[aria-label*="previous"],
+        div[data-baseweb="calendar"] button[aria-label*="next"],
+        div[data-baseweb="calendar"] button[aria-label*="Previous"],
+        div[data-baseweb="calendar"] button[aria-label*="Next"] {
+            color: #8A8A8A !important;
+        }
+        div[data-baseweb="calendar"] button[aria-label*="previous"]:hover,
+        div[data-baseweb="calendar"] button[aria-label*="next"]:hover,
+        div[data-baseweb="calendar"] button[aria-label*="Previous"]:hover,
+        div[data-baseweb="calendar"] button[aria-label*="Next"]:hover {
+            color: #1A6DCC !important;
+            background: #EBF3FF !important;
         }
         </style>
         """, unsafe_allow_html=True)
