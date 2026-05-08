@@ -1147,105 +1147,203 @@ def pagina_inicio():
         )
         st.markdown(_dp_html, unsafe_allow_html=True)
 
-        # ── Calendário nativo — abaixo do Day Pulse ───────────────────────────
-        st.markdown("""
-        <div class="gh-card" style="padding:14px 20px 16px;">
-          <div class="card-hd" style="padding:0 0 12px 0;border-bottom:1px solid rgba(13,13,13,.07);margin-bottom:0;">
-            <span class="card-title">Calendário</span>
-          </div>
-        </div>
-        <style>
-        /* Input field */
-        div[data-testid="stDateInput"] input {
-            background: #fff !important;
-            border: 1px solid rgba(13,13,13,.12) !important;
-            border-radius: 8px !important;
-            font-family: 'DM Sans', sans-serif !important;
-            font-size: 13px !important;
-            color: #0D0D0D !important;
-            padding: 8px 12px !important;
-            box-shadow: none !important;
-        }
-        div[data-testid="stDateInput"] label { display: none !important; }
-        div[data-testid="stDateInput"] > div { border: none !important; background: transparent !important; box-shadow: none !important; }
-        /* ── Popup do calendário ── */
-        div[data-baseweb="popover"] div[data-baseweb="calendar"],
-        div[data-baseweb="calendar"] {
-            background: #ffffff !important;
-            border-radius: 12px !important;
-            border: 1px solid rgba(13,13,13,.10) !important;
-            box-shadow: 0 8px 32px rgba(0,0,0,.12) !important;
-            font-family: 'DM Sans', sans-serif !important;
-        }
-        /* Header do popup (mês/ano) */
-        div[data-baseweb="calendar"] div[data-baseweb="select"] button,
-        div[data-baseweb="calendar"] button {
-            background: transparent !important;
-            color: #0D0D0D !important;
-            font-family: 'DM Sans', sans-serif !important;
-            font-size: 12px !important;
-        }
-        /* Dias normais */
-        div[data-baseweb="calendar"] div[role="gridcell"] button {
-            background: transparent !important;
-            color: #0D0D0D !important;
-            border-radius: 50% !important;
-            font-size: 12px !important;
-        }
-        div[data-baseweb="calendar"] div[role="gridcell"] button:hover {
-            background: #EBF3FF !important;
-            color: #1A6DCC !important;
-        }
-        /* Dia selecionado — azul */
-        div[data-baseweb="calendar"] div[aria-selected="true"] button,
-        div[data-baseweb="calendar"] button[aria-selected="true"] {
-            background: #1A6DCC !important;
-            color: #ffffff !important;
-            border-radius: 50% !important;
-        }
-        /* Hoje — contorno azul claro */
-        div[data-baseweb="calendar"] div[data-today="true"] button {
-            border: 2px solid #1A6DCC !important;
-            color: #1A6DCC !important;
-        }
-        /* Dias fora do mês */
-        div[data-baseweb="calendar"] div[data-outside-month="true"] button {
-            color: #CCCCCC !important;
-        }
-        /* Cabeçalho dias da semana */
-        div[data-baseweb="calendar"] div[data-testid="CalendarHeader"] {
-            color: #8A8A8A !important;
-            font-size: 11px !important;
-            font-weight: 600 !important;
-        }
-        /* Setas de navegação */
-        div[data-baseweb="calendar"] button[aria-label*="previous"],
-        div[data-baseweb="calendar"] button[aria-label*="next"],
-        div[data-baseweb="calendar"] button[aria-label*="Previous"],
-        div[data-baseweb="calendar"] button[aria-label*="Next"] {
-            color: #8A8A8A !important;
-        }
-        div[data-baseweb="calendar"] button[aria-label*="previous"]:hover,
-        div[data-baseweb="calendar"] button[aria-label*="next"]:hover,
-        div[data-baseweb="calendar"] button[aria-label*="Previous"]:hover,
-        div[data-baseweb="calendar"] button[aria-label*="Next"]:hover {
-            color: #1A6DCC !important;
-            background: #EBF3FF !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        # ── Calendário — design da referência (sempre visível) ────────────────
+        def _render_cal_html(sel: date, vm: date) -> str:
+            hoje_h = datetime.now(tz=TZ_SP).date()
+            vy, vm_n = vm.year, vm.month
 
-        _nova_data = st.date_input(
-            "Selecione uma data",
-            value=data_sel,
-            key="cal_date_picker",
-            label_visibility="collapsed",
-            format="DD/MM/YYYY",
-        )
-        if _nova_data != data_sel:
-            st.session_state["data_agenda"] = _nova_data
-            st.session_state["cal_month"]   = _nova_data.replace(day=1)
+            # Prev / next month
+            if vm_n == 1:  prev_y, prev_mn = vy-1, 12
+            else:          prev_y, prev_mn = vy,   vm_n-1
+            if vm_n == 12: next_y, next_mn = vy+1, 1
+            else:          next_y, next_mn = vy,   vm_n+1
+            prev_iso = date(prev_y, prev_mn, 1).isoformat()
+            next_iso = date(next_y, next_mn, 1).isoformat()
+
+            # Calendar math — always 42 cells (6 rows × 7)
+            first_dow   = (date(vy, vm_n, 1).weekday() + 1) % 7  # 0=Sun
+            days_in_mon = (date(next_y, next_mn, 1) - date(vy, vm_n, 1)).days
+            days_in_prev = (date(vy, vm_n, 1) - date(prev_y, prev_mn, 1)).days
+
+            cells = []
+            # Leading days from previous month
+            for i in range(first_dow):
+                d = days_in_prev - first_dow + 1 + i
+                dt = date(prev_y, prev_mn, d)
+                cells.append((dt, "outside"))
+            # Current month days
+            for d in range(1, days_in_mon + 1):
+                dt = date(vy, vm_n, d)
+                if dt == sel and dt == hoje_h:  kind = "sel today"
+                elif dt == sel:                 kind = "sel"
+                elif dt == hoje_h:              kind = "today"
+                else:                           kind = ""
+                cells.append((dt, kind))
+            # Trailing days to fill 42 cells
+            trail = 1
+            while len(cells) < 42:
+                dt = date(next_y, next_mn, trail)
+                cells.append((dt, "outside"))
+                trail += 1
+
+            # Build cells HTML
+            cells_html = ""
+            for dt, kind in cells:
+                iso = dt.isoformat()
+                cls = "cd"
+                if "outside" in kind: cls += " out"
+                if "today"   in kind: cls += " today"
+                if "sel"     in kind: cls += " sel"
+                cells_html += f'<button class="{cls}" onclick="pick(\'{iso}\')">{dt.day}</button>'
+
+            title = f"{MESES_PT[vm_n-1]} {vy}"
+            sel_iso = sel.isoformat()
+
+            return f"""<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+html,body{{background:transparent;font-family:'DM Sans',system-ui,sans-serif;
+           width:100%;overflow:hidden;user-select:none}}
+.wrap{{padding:18px 4px 10px;background:#fff;border:1px solid rgba(13,13,13,.08);
+       border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}}
+
+/* ── Header ── */
+.hd{{display:flex;align-items:center;justify-content:space-between;
+     padding:0 8px;margin-bottom:14px}}
+.nav{{background:none;border:none;cursor:pointer;width:30px;height:30px;
+      border-radius:8px;display:flex;align-items:center;justify-content:center;
+      color:#6B7280;transition:background .15s,color .15s;flex-shrink:0}}
+.nav svg{{width:18px;height:18px;stroke-width:2.2}}
+.nav:hover{{background:#F3F4F6;color:#111827}}
+.title{{font-size:16px;font-weight:700;color:#111827;letter-spacing:-.4px;
+        flex:1;text-align:center}}
+
+/* ── Days of week ── */
+.dows{{display:grid;grid-template-columns:repeat(7,1fr);
+       padding:0 4px;margin-bottom:4px}}
+.dow{{text-align:center;font-size:11px;font-weight:600;
+      color:#9CA3AF;padding:4px 0;letter-spacing:.02em}}
+
+/* ── Grid ── */
+.grid{{display:grid;grid-template-columns:repeat(7,1fr);
+       padding:0 4px;gap:1px}}
+
+/* ── Day button base ── */
+.cd{{background:none;border:none;cursor:pointer;
+     width:100%;aspect-ratio:1;border-radius:50%;
+     font-size:13px;font-family:'DM Sans',sans-serif;
+     font-weight:400;color:#111827;
+     display:flex;align-items:center;justify-content:center;
+     transition:background .12s,color .12s;
+     position:relative}}
+.cd:hover:not(.sel){{background:#F3F4F6;color:#111827}}
+
+/* Outside days (prev/next month) */
+.cd.out{{color:#D1D5DB;font-weight:400}}
+.cd.out:hover{{background:#F9FAFB;color:#9CA3AF}}
+
+/* Today */
+.cd.today:not(.sel){{background:#F3F4F6;color:#111827;font-weight:600}}
+
+/* Selected */
+.cd.sel{{background:#4F46E5;color:#fff;font-weight:700;
+         box-shadow:0 0 0 3px rgba(79,70,229,.18)}}
+.cd.sel:hover{{background:#4338CA}}
+
+/* Selected + today */
+.cd.sel.today{{background:#4F46E5;box-shadow:0 0 0 3px rgba(79,70,229,.25)}}
+
+/* ── Slide animation ── */
+@keyframes slideInRight{{from{{opacity:0;transform:translateX(24px)}}to{{opacity:1;transform:translateX(0)}}}}
+@keyframes slideInLeft{{from{{opacity:0;transform:translateX(-24px)}}to{{opacity:1;transform:translateX(0)}}}}
+.slide-right{{animation:slideInRight .18s ease}}
+.slide-left{{animation:slideInLeft .18s ease}}
+</style></head><body>
+<div class="wrap">
+  <div class="hd">
+    <button class="nav" id="btn-prev" onclick="navMonth('{prev_iso}','left')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="title" id="cal-title">{title}</span>
+    <button class="nav" id="btn-next" onclick="navMonth('{next_iso}','right')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div class="dows">
+    <div class="dow">Dom</div><div class="dow">Seg</div><div class="dow">Ter</div>
+    <div class="dow">Qua</div><div class="dow">Qui</div><div class="dow">Sex</div>
+    <div class="dow">Sáb</div>
+  </div>
+  <div class="grid" id="cal-grid">{cells_html}</div>
+</div>
+<script>
+var SEL = "{sel_iso}";
+
+function pick(iso) {{
+  SEL = iso;
+  // Highlight selected cell immediately for responsiveness
+  document.querySelectorAll('.cd').forEach(function(b) {{
+    b.classList.remove('sel');
+  }});
+  event.currentTarget.classList.add('sel');
+  // Send to Streamlit via React synthetic event on the hidden date input
+  sendToStreamlit(iso);
+}}
+
+function sendToStreamlit(iso) {{
+  var parts = iso.split('-');
+  var fmt   = parts[1] + '/' + parts[2] + '/' + parts[0]; // MM/DD/YYYY
+  var frames = [];
+  try {{ frames.push(window.parent); }} catch(e) {{}}
+  try {{ if (window.top !== window.parent) frames.push(window.top); }} catch(e) {{}}
+  var sent = false;
+  for (var i = 0; i < frames.length; i++) {{
+    try {{
+      var inp = frames[i].document.querySelector('[data-testid="stDateInput"] input');
+      if (inp) {{
+        var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+        setter.call(inp, fmt);
+        inp.dispatchEvent(new Event('input',  {{bubbles:true}}));
+        inp.dispatchEvent(new Event('change', {{bubbles:true}}));
+        sent = true; break;
+      }}
+    }} catch(e) {{}}
+  }}
+  // Fallback: postMessage (parent listens and clicks a hidden Streamlit button)
+  if (!sent) {{
+    try {{ window.parent.postMessage({{type:'stlCalPick', iso:iso}}, '*'); }} catch(e) {{}}
+  }}
+}}
+
+function navMonth(iso, dir) {{
+  sendToStreamlit(iso);
+}}
+</script>
+</body></html>"""
+
+        # ── Receptor oculto ───────────────────────────────────────────────────
+        st.markdown("""<style>
+        div[data-testid="stDateInput"] {{
+            position:absolute !important; opacity:0 !important;
+            pointer-events:none !important; height:0 !important;
+            overflow:hidden !important; z-index:-1 !important;
+        }}</style>""", unsafe_allow_html=True)
+
+        _cal_recv = st.date_input("_cal", value=data_sel, key="cal_recv",
+                                  label_visibility="collapsed")
+        if _cal_recv != data_sel:
+            # Se o dia recebido é 1 e o mês/ano é diferente do mês atual exibido
+            # → é navegação de mês, não seleção de data
+            if _cal_recv.day == 1 and (_cal_recv.month != cal_month.month or _cal_recv.year != cal_month.year):
+                st.session_state["cal_month"] = _cal_recv
+            else:
+                st.session_state["data_agenda"] = _cal_recv
+                st.session_state["cal_month"]   = _cal_recv.replace(day=1)
             st.rerun()
+
+        components.html(_render_cal_html(data_sel, cal_month), height=330, scrolling=False)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
