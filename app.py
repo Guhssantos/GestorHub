@@ -118,6 +118,28 @@ for k, v in {"logado_ms": False, "access_token": None,
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ── CALENDÁRIO: lê query params ANTES do OAuth (sessão já está em memória) ────
+_qp = st.query_params
+_cal_date_qp  = _qp.get("cal_date",  "")
+_cal_month_qp = _qp.get("cal_month", "")
+if _cal_date_qp and st.session_state["logado_ms"]:
+    try:
+        _d = date.fromisoformat(_cal_date_qp)
+        st.session_state["data_agenda"] = _d
+        st.session_state["cal_month"]   = _d.replace(day=1)
+        st.query_params.clear()
+        st.rerun()
+    except Exception:
+        st.query_params.pop("cal_date", None)
+elif _cal_month_qp and st.session_state["logado_ms"]:
+    try:
+        _m = date.fromisoformat(_cal_month_qp)
+        st.session_state["cal_month"] = _m.replace(day=1)
+        st.query_params.clear()
+        st.rerun()
+    except Exception:
+        st.query_params.pop("cal_month", None)
+
 
 # ── OAUTH CALLBACK ────────────────────────────────────────────────────────────
 qp = st.query_params
@@ -155,13 +177,6 @@ header[data-testid="stHeader"]          { display: none !important; }
 [data-testid="stSidebarCollapseButton"] { display: none !important; }
 button[data-testid="collapsedControl"]  { display: none !important; }
 [data-testid="stToolbar"]               { display: none !important; }
-
-/* Todos os date_input visíveis por padrão (o oculto foi removido) */
-div[data-testid="stDateInput"] {
-    position: static !important; opacity: 1 !important;
-    pointer-events: auto !important; height: auto !important;
-    overflow: visible !important; z-index: auto !important;
-}
 
 /* SIDEBAR */
 [data-testid="stSidebar"],
@@ -1263,11 +1278,11 @@ html,body{{background:transparent;font-family:'DM Sans',system-ui,sans-serif;
 </style></head><body>
 <div class="wrap">
   <div class="hd">
-    <button class="nav" id="btn-prev" onclick="navMonth('{prev_iso}','left')">
+    <button class="nav" id="btn-prev" onclick="navMonth('{prev_iso}')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <span class="title" id="cal-title">{title}</span>
-    <button class="nav" id="btn-next" onclick="navMonth('{next_iso}','right')">
+    <button class="nav" id="btn-next" onclick="navMonth('{next_iso}')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
   </div>
@@ -1279,69 +1294,35 @@ html,body{{background:transparent;font-family:'DM Sans',system-ui,sans-serif;
   <div class="grid" id="cal-grid">{cells_html}</div>
 </div>
 <script>
-var SEL = "{sel_iso}";
-
 function pick(iso) {{
-  SEL = iso;
-  // Highlight selected cell immediately for responsiveness
-  document.querySelectorAll('.cd').forEach(function(b) {{
-    b.classList.remove('sel');
-  }});
+  // Feedback visual imediato
+  document.querySelectorAll('.cd').forEach(function(b) {{ b.classList.remove('sel'); }});
   event.currentTarget.classList.add('sel');
-  // Send to Streamlit via React synthetic event on the hidden date input
-  sendToStreamlit(iso);
+  // Navega com query param — sessão preservada pois logado_ms já está em memória
+  setParam('cal_date', iso);
 }}
 
-function sendToStreamlit(iso) {{
-  var parts = iso.split('-');
-  var fmt   = parts[1] + '/' + parts[2] + '/' + parts[0]; // MM/DD/YYYY
-  var frames = [];
-  try {{ frames.push(window.parent); }} catch(e) {{}}
-  try {{ if (window.top !== window.parent) frames.push(window.top); }} catch(e) {{}}
-  var sent = false;
-  for (var i = 0; i < frames.length; i++) {{
-    try {{
-      var inp = frames[i].document.querySelector('[data-testid="stDateInput"] input');
-      if (inp) {{
-        var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-        setter.call(inp, fmt);
-        inp.dispatchEvent(new Event('input',  {{bubbles:true}}));
-        inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-        sent = true; break;
-      }}
-    }} catch(e) {{}}
-  }}
-  // Fallback: postMessage (parent listens and clicks a hidden Streamlit button)
-  if (!sent) {{
-    try {{ window.parent.postMessage({{type:'stlCalPick', iso:iso}}, '*'); }} catch(e) {{}}
-  }}
+function navMonth(iso) {{
+  setParam('cal_month', iso);
 }}
 
-function navMonth(iso, dir) {{
-  sendToStreamlit(iso);
+function setParam(key, val) {{
+  try {{
+    var t = window.top || window.parent;
+    var url = new URL(t.location.href);
+    url.searchParams.set(key, val);
+    t.location.href = url.toString();
+  }} catch(e) {{
+    window.parent.location.href = '?' + key + '=' + val;
+  }}
 }}
 </script>
 </body></html>"""
 
         # ── Receptor oculto ───────────────────────────────────────────────────
-        st.markdown("""<style>
-        div[data-testid="stDateInput"] {{
-            position:absolute !important; opacity:0 !important;
-            pointer-events:none !important; height:0 !important;
-            overflow:hidden !important; z-index:-1 !important;
-        }}</style>""", unsafe_allow_html=True)
-
-        _cal_recv = st.date_input("_cal", value=data_sel, key="cal_recv",
-                                  label_visibility="collapsed")
-        if _cal_recv != data_sel:
-            # Se o dia recebido é 1 e o mês/ano é diferente do mês atual exibido
-            # → é navegação de mês, não seleção de data
-            if _cal_recv.day == 1 and (_cal_recv.month != cal_month.month or _cal_recv.year != cal_month.year):
-                st.session_state["cal_month"] = _cal_recv
-            else:
-                st.session_state["data_agenda"] = _cal_recv
-                st.session_state["cal_month"]   = _cal_recv.replace(day=1)
-            st.rerun()
+        # Sem date_input — JS usa query params lidos no topo do script
+        # antes da checagem de autenticação (sessão preservada em memória)
+        components.html(_render_cal_html(data_sel, cal_month), height=330, scrolling=False)
 
         components.html(_render_cal_html(data_sel, cal_month), height=330, scrolling=False)
 
