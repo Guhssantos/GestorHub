@@ -686,6 +686,99 @@ def _mini_cal_html(data_sel: date, view_month: date = None) -> str:
     else:       next_y, next_m = y,   m+1
 
     return f"""
+    def _build_calendar(sel: "date", vm: "date") -> str:
+    from calendar import monthrange
+    import datetime as _dt
+
+    hoje   = _dt.datetime.now(tz=TZ_SP).date()
+    vy, vm_n = vm.year, vm.month
+
+    if vm_n == 1:  prev_y, prev_m = vy - 1, 12
+    else:          prev_y, prev_m = vy, vm_n - 1
+    if vm_n == 12: next_y, next_m = vy + 1, 1
+    else:          next_y, next_m = vy, vm_n + 1
+
+    days_cur  = monthrange(vy, vm_n)[1]
+    days_prev = monthrange(prev_y, prev_m)[1]
+
+    first_dow = (_dt.date(vy, vm_n, 1).weekday() + 1) % 7
+
+    cells = []
+
+    for i in range(first_dow):
+        d = days_prev - first_dow + 1 + i
+        cells.append((d, prev_m, prev_y, False))
+
+    for d in range(1, days_cur + 1):
+        cells.append((d, vm_n, vy, True))
+
+    while len(cells) % 7:
+        d = len(cells) - first_dow - days_cur + 1
+        cells.append((d, next_m, next_y, False))
+
+    btns = ""
+    for d, m, y, cur in cells:
+        dt = _dt.date(y, m, d)
+        iso = dt.isoformat()
+
+        cls = "cd"
+        if dt == sel:
+            cls += " cd-sel"
+        elif dt == hoje:
+            cls += " cd-today"
+        if not cur:
+            cls += " cd-out"
+
+        btns += f'<button class="{cls}" onclick="pick(\'{iso}\')">{d}</button>'
+
+    prev_iso = f"{prev_y:04d}-{prev_m:02d}-01"
+    next_iso = f"{next_y:04d}-{next_m:02d}-01"
+    mes_nome = MESES_PT[vm_n - 1]
+
+    return f"""
+    <div class="cal">
+      <div class="hd">
+        <button onclick="nav('{prev_iso}')">&#8249;</button>
+        <span>{mes_nome} {vy}</span>
+        <button onclick="nav('{next_iso}')">&#8250;</button>
+      </div>
+      <div class="grid">
+        {btns}
+      </div>
+    </div>
+
+<script>
+function go(param, value) {{
+  var target = window.top || window.parent || window;
+  var url = new URL(target.location.href);
+  url.searchParams.set(param, value);
+
+  if (!url.searchParams.get("page")) {{
+    url.searchParams.set("page", "inicio");
+  }}
+
+  target.location.href = url.toString();
+}}
+
+function pick(iso) {{
+  go("cal_date", iso);
+}}
+
+function nav(iso) {{
+  go("cal_month", iso);
+}}
+</script>
+
+<style>
+.cal {{padding:10px;background:#fff;border-radius:12px;border:1px solid #eee}}
+.hd {{display:flex;justify-content:space-between;margin-bottom:10px}}
+.grid {{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}}
+.cd {{padding:6px;border-radius:50%;border:none;cursor:pointer}}
+.cd-sel {{background:#3B5BDB;color:#fff}}
+.cd-today {{border:1px solid #3B5BDB}}
+.cd-out {{color:#ccc}}
+</style>
+"""
     <div class="mini-cal">
       <div class="mcal-nav">
         <span style="font-size:18px;color:#8A8A8A;cursor:pointer;padding:4px 8px;"
@@ -787,8 +880,23 @@ def pagina_inicio():
     cal_month = st.session_state["cal_month"]
     label     = "Hoje" if data_sel == hoje_sp else f"{data_sel.day} {MESES_ABR[data_sel.month-1]} {data_sel.year}"
 
-    components.html(_calendar_widget(label, hoje_sp.isoformat(), data_sel.isoformat()),
-                    height=52, scrolling=False)
+# ── NOVO CALENDÁRIO ─────────────────────────────
+qp = st.query_params
+
+if "cal_date" in qp:
+    st.session_state["data_agenda"] = date.fromisoformat(qp["cal_date"])
+
+if "cal_month" in qp:
+    st.session_state["cal_month"] = date.fromisoformat(qp["cal_month"])
+
+data_sel  = st.session_state["data_agenda"]
+cal_month = st.session_state["cal_month"]
+
+components.html(
+    _build_calendar(data_sel, cal_month),
+    height=340,
+    scrolling=False
+)
 
     col_agenda, col_side = st.columns([1.5, 1], gap="medium")
 
