@@ -601,10 +601,10 @@ html,body{{background:transparent;padding:0}}
 }}
 .calendar-day:hover{{background:#F4F5F7}}
 .calendar-day.muted{{color:#C8C8C8}}
-.calendar-day.today{{background:#F4F5F7;color:#020617}}
+.calendar-day.today{{background:#F5F5F6;color:#020617}}
 .calendar-day.selected{{
-  background:#4652F6; color:#FFFFFF; font-weight:700;
-  box-shadow:0 0 0 4px #FFFFFF, 0 0 0 7px rgba(2,6,23,.30);
+  background:#4455F5; color:#FFFFFF; font-weight:700;
+  box-shadow:0 0 0 4px #FFFFFF, 0 0 0 7px #A7AAB4;
 }}
 .calendar-day.selected:hover{{background:#3F46E8;transform:translateY(-1px)}}
 @media (max-width:420px){{
@@ -647,23 +647,8 @@ function setCalMonth(iso){{
 </body></html>"""
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PÁGINA: INÍCIO
-# ══════════════════════════════════════════════════════════════════════════════
-def pagina_inicio():
-    h = datetime.now(tz=TZ_SP).hour
-    saudacao = "Bom dia" if h < 12 else "Boa tarde" if h < 18 else "Boa noite"
-    topbar(f"{saudacao}, {nome.split()[0] if nome else 'Gestor'} 👋",
-           "Agenda sincronizada com a Microsoft")
-
-    hoje_sp = datetime.now(tz=TZ_SP).date()
-
-    # ── Inicializa estados ──────────────────────────────────────────────────
-    if st.session_state["data_agenda"] is None:
-        st.session_state["data_agenda"] = hoje_sp
-    if st.session_state["cal_month"] is None:
-        st.session_state["cal_month"] = st.session_state["data_agenda"].replace(day=1)
-
+def _sync_calendar_query_params() -> None:
+    """Atualiza o calendário a partir dos cliques feitos no componente HTML."""
     cal_query_changed = False
     cal_month_qp = st.query_params.get("cal_month")
     if cal_month_qp:
@@ -692,6 +677,26 @@ def pagina_inicio():
 
     if cal_query_changed:
         st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PÁGINA: INÍCIO
+# ══════════════════════════════════════════════════════════════════════════════
+def pagina_inicio():
+    h = datetime.now(tz=TZ_SP).hour
+    saudacao = "Bom dia" if h < 12 else "Boa tarde" if h < 18 else "Boa noite"
+    topbar(f"{saudacao}, {nome.split()[0] if nome else 'Gestor'} 👋",
+           "Agenda sincronizada com a Microsoft")
+
+    hoje_sp = datetime.now(tz=TZ_SP).date()
+
+    # ── Inicializa estados ──────────────────────────────────────────────────
+    if st.session_state["data_agenda"] is None:
+        st.session_state["data_agenda"] = hoje_sp
+    if st.session_state["cal_month"] is None:
+        st.session_state["cal_month"] = st.session_state["data_agenda"].replace(day=1)
+
+    _sync_calendar_query_params()
 
     data_sel  = st.session_state["data_agenda"]
     cal_month = st.session_state["cal_month"]
