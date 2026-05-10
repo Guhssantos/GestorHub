@@ -331,6 +331,15 @@ ul[data-baseweb="menu"] li:hover { background:#2A2A2A !important; }
 
 div[data-testid="stHtml"] { overflow:visible !important; }
 
+/* Garante que botões do calendário nunca herdem o estilo escuro da sidebar */
+div.cal-grid-wrap button,
+div.cal-nav-area button {
+    background: transparent !important;
+    color: #111827 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
 /* MOBILE */
 @media (max-width: 768px) {
   [data-testid="stSidebar"] { display: none !important; }
@@ -890,76 +899,111 @@ def pagina_inicio():
 
         # Seletores nth-child baseados na ordem dos st.columns no DOM
         def _sel(row, col):
-            # .cal-grid-wrap > n-ésimo stHorizontalBlock > c-ésima coluna > botão
             return (f'div.cal-grid-wrap > div[data-testid="stHorizontalBlock"]:nth-of-type({row+1})'
                     f' > div[data-testid="stColumn"]:nth-child({col+1}) button')
 
         _css_out   = "\n".join(
-            f'{_sel(i//7, i%7)}{{color:#C0C0C0!important;font-weight:400!important}}'
+            f'{_sel(i//7, i%7)}{{color:#C8C8C8!important;}}'
             for i in out_set)
         _css_today = (f'{_sel(today_idx//7, today_idx%7)}'
-                      f'{{background:#F0F0F0!important;font-weight:600!important;color:#111!important}}'
+                      f'{{background:#F0F0F0!important;color:#111!important;font-weight:600!important;}}'
                       if today_idx >= 0 else "")
         _css_sel   = (f'{_sel(sel_idx//7, sel_idx%7)}'
-                      f'{{background:#4F46E5!important;color:#fff!important;'
-                      f'font-weight:700!important;box-shadow:0 0 0 3px rgba(79,70,229,.22)!important;'
-                      f'border-radius:50%!important}}'
+                      f'{{background:#4361EE!important;color:#fff!important;'
+                      f'font-weight:700!important;box-shadow:0 0 0 3px rgba(67,97,238,.25)!important;}}'
                       if sel_idx >= 0 else "")
 
         st.markdown(f"""
 <style>
 /* ── Card wrapper ── */
 .cal-card {{
-    background:#fff; border:1px solid rgba(13,13,13,.08);
-    border-radius:16px; padding:16px 10px 12px; margin-top:12px;
+    background:#fff;
+    border:1px solid rgba(13,13,13,.08);
+    border-radius:16px;
+    padding:16px 14px 14px;
+    margin-top:12px;
 }}
 /* ── Título do mês ── */
 .cal-month-title {{
-    text-align:center; font-size:15px; font-weight:700;
-    color:#111827; letter-spacing:-.3px; margin-bottom:10px;
+    text-align:center;
+    font-size:16px;
+    font-weight:700;
+    color:#111827;
+    letter-spacing:-.4px;
+    margin-bottom:12px;
     font-family:'DM Sans',sans-serif;
 }}
 /* ── Dias da semana ── */
 .cal-dows {{
-    display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px;
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    margin-bottom:2px;
 }}
 .cal-dow {{
-    text-align:center; font-size:10px; font-weight:600;
-    color:#9CA3AF; padding:3px 0; font-family:'DM Sans',sans-serif;
+    text-align:center;
+    font-size:11px;
+    font-weight:500;
+    color:#9CA3AF;
+    padding:4px 0;
+    font-family:'DM Sans',sans-serif;
 }}
-/* ── Botões de navegação de mês ── */
+/* ── Botões nav ── */
+div.cal-nav-area div[data-testid="stHorizontalBlock"] {{
+    gap:0!important;
+}}
 div.cal-nav-area button[data-testid="baseButton-secondary"] {{
-    background:transparent!important; border:none!important;
-    box-shadow:none!important; color:#6B7280!important;
-    min-height:0!important; height:28px!important; width:100%!important;
-    font-size:20px!important; padding:0!important; cursor:pointer!important;
-    border-radius:8px!important; transition:background .12s!important;
+    background:transparent!important;
+    border:none!important;
+    box-shadow:none!important;
+    color:#9CA3AF!important;
+    min-height:0!important;
+    height:32px!important;
+    width:100%!important;
+    font-size:18px!important;
+    padding:0!important;
+    cursor:pointer!important;
+    border-radius:8px!important;
+    transition:color .12s!important;
+    font-weight:400!important;
 }}
 div.cal-nav-area button[data-testid="baseButton-secondary"]:hover {{
-    background:#F3F4F6!important; color:#111827!important;
+    color:#111827!important;
+    background:#F3F4F6!important;
 }}
-/* ── Botões dos dias ── */
+/* ── Grid de dias ── */
 div.cal-grid-wrap div[data-testid="stHorizontalBlock"] {{
-    gap:2px!important;
+    gap:0!important;
 }}
 div.cal-grid-wrap div[data-testid="stColumn"] {{
-    padding:1px!important; min-width:0!important; flex:1!important;
+    padding:2px!important;
+    min-width:0!important;
+    flex:1!important;
 }}
+/* Base dos botões de dia — completamente transparente, sem borda, sem sombra */
 div.cal-grid-wrap button[data-testid="baseButton-secondary"] {{
-    width:100%!important; aspect-ratio:1/1!important;
-    background:transparent!important; border:none!important;
-    box-shadow:none!important; border-radius:50%!important;
-    font-size:12px!important; font-family:'DM Sans',sans-serif!important;
-    font-weight:400!important; color:#111827!important;
-    padding:0!important; min-height:0!important;
-    cursor:pointer!important; transition:background .12s,color .12s!important;
-    display:flex!important; align-items:center!important;
+    width:100%!important;
+    aspect-ratio:1/1!important;
+    background:transparent!important;
+    border:none!important;
+    box-shadow:none!important;
+    border-radius:50%!important;
+    font-size:13px!important;
+    font-family:'DM Sans',sans-serif!important;
+    font-weight:400!important;
+    color:#111827!important;
+    padding:0!important;
+    min-height:0!important;
+    cursor:pointer!important;
+    transition:background .1s!important;
+    display:flex!important;
+    align-items:center!important;
     justify-content:center!important;
 }}
 div.cal-grid-wrap button[data-testid="baseButton-secondary"]:hover {{
-    background:#F3F4F6!important; color:#111827!important;
+    background:#F3F4F6!important;
+    color:#111827!important;
 }}
-/* Estados dinâmicos */
+/* Estados dinâmicos por posição */
 {_css_out}
 {_css_today}
 {_css_sel}
