@@ -866,56 +866,80 @@ def pagina_inicio():
               '</div></div>')
         st.markdown(_dp_html, unsafe_allow_html=True)
 
-        st.markdown(_dp_html, unsafe_allow_html=True)
-
         # ── CALENDÁRIO ─────────────────────────────────────────────────────────
         st.markdown("""<style>
-        div[data-testid="stDateInput"] label { display:none !important; }
+        /* Card wrapper para o calendário */
+        div[data-testid="stDateInput"] {
+            background: #fff !important;
+            border: 1px solid rgba(13,13,13,.08) !important;
+            border-radius: 14px !important;
+            padding: 14px 16px 10px !important;
+            margin-top: 12px !important;
+        }
+        div[data-testid="stDateInput"] label {
+            font-size: 13px !important; font-weight: 500 !important;
+            color: #0D0D0D !important; display: block !important;
+            padding-bottom: 10px !important;
+            border-bottom: 1px solid rgba(13,13,13,.07) !important;
+            margin-bottom: 10px !important;
+        }
         div[data-testid="stDateInput"] input {
-            background:#fff !important; border:1px solid #E5E7EB !important;
-            border-radius:8px !important; color:#111827 !important;
-            font-size:13px !important; padding:8px 12px !important;
+            background: #F5F3EF !important; border: 1px solid #E5E7EB !important;
+            border-radius: 8px !important; color: #111827 !important;
+            font-size: 13px !important; padding: 8px 12px !important;
         }
         div[data-testid="stDateInput"] > div > div {
-            background:#fff !important; border:none !important; box-shadow:none !important;
+            background: transparent !important; border: none !important; box-shadow: none !important;
         }
+        /* Calendário popup */
         div[data-baseweb="calendar"] {
-            background:#fff !important; border:1px solid #E5E7EB !important;
-            border-radius:12px !important; box-shadow:0 8px 24px rgba(0,0,0,.10) !important;
+            background: #fff !important; border: 1px solid #E5E7EB !important;
+            border-radius: 12px !important; box-shadow: 0 8px 24px rgba(0,0,0,.10) !important;
         }
+        div[data-baseweb="calendar"] * { font-family: 'DM Sans', sans-serif !important; }
         div[data-baseweb="calendar"] button {
-            background:transparent !important; color:#111827 !important; border-radius:50% !important;
+            background: transparent !important; color: #111827 !important;
+            border-radius: 50% !important; border: none !important;
+            font-size: 13px !important;
         }
-        div[data-baseweb="calendar"] button:hover { background:#F3F4F6 !important; }
+        div[data-baseweb="calendar"] button:hover { background: #F3F4F6 !important; }
         div[data-baseweb="calendar"] div[aria-selected="true"] button {
-            background:#4361EE !important; color:#fff !important; font-weight:700 !important;
+            background: #E8533C !important; color: #fff !important; font-weight: 700 !important;
         }
         div[data-baseweb="calendar"] div[data-today="true"] button {
-            border:2px solid #4361EE !important; color:#4361EE !important;
+            border: 2px solid #E8533C !important; color: #E8533C !important;
         }
-        div[data-baseweb="calendar"] div[data-outside-month="true"] button {
-            color:#D1D5DB !important;
+        div[data-baseweb="calendar"] div[data-outside-month="true"] button { color: #D1D5DB !important; }
+        div[data-baseweb="calendar"] div[role="columnheader"] {
+            color: #9CA3AF !important; font-size: 11px !important; font-weight: 600 !important;
         }
+        /* Cabeçalho do mês (selects de mês/ano) */
+        div[data-baseweb="calendar"] select {
+            background: #fff !important; color: #0D0D0D !important;
+            border: 1px solid #E5E7EB !important; border-radius: 6px !important;
+            font-size: 13px !important; font-weight: 500 !important;
+            padding: 2px 6px !important;
+        }
+        div[data-baseweb="calendar"] select option { color: #0D0D0D !important; }
+        /* Setas de navegação */
         div[data-baseweb="calendar"] button[aria-label*="previous"],
         div[data-baseweb="calendar"] button[aria-label*="next"],
         div[data-baseweb="calendar"] button[aria-label*="Previous"],
         div[data-baseweb="calendar"] button[aria-label*="Next"] {
-            background:transparent !important; color:#374151 !important; border:none !important;
+            background: transparent !important; color: #374151 !important;
+            border-radius: 8px !important;
         }
-        div[data-baseweb="calendar"] div[role="columnheader"] {
-            color:#9CA3AF !important; font-size:11px !important; font-weight:600 !important;
+        div[data-baseweb="calendar"] button[aria-label*="previous"]:hover,
+        div[data-baseweb="calendar"] button[aria-label*="next"]:hover,
+        div[data-baseweb="calendar"] button[aria-label*="Previous"]:hover,
+        div[data-baseweb="calendar"] button[aria-label*="Next"]:hover {
+            background: #F3F4F6 !important;
         }
         </style>""", unsafe_allow_html=True)
 
-        st.markdown("""<div style="background:#fff;border:1px solid rgba(13,13,13,.08);
-            border-radius:14px;padding:14px 16px 4px;margin-top:12px;">
-            <p style="font-size:13px;font-weight:500;color:#0D0D0D;margin:0 0 12px;
-            border-bottom:1px solid rgba(13,13,13,.07);padding-bottom:10px;">Calendário</p>
-            </div>""", unsafe_allow_html=True)
-
         _nova_data = st.date_input(
-            "Data", value=data_sel, key="cal_date_input",
-            format="DD/MM/YYYY", label_visibility="collapsed",
+            "Calendário", value=data_sel, key="cal_date_input",
+            format="DD/MM/YYYY",
         )
         if _nova_data != data_sel:
             st.session_state["data_agenda"] = _nova_data
