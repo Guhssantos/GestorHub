@@ -340,6 +340,31 @@ div.cal-nav-area button {
     box-shadow: none !important;
 }
 
+/* ── Isola os botões BaseWeb do calendário dos estilos globais de button ──
+   O popup é renderizado no <body> fora do sidebar, mas regras globais
+   de [data-testid="stSidebar"] button podem vazar via herança.
+   Este bloco garante aparência correta no light mode.                     */
+div[data-baseweb="calendar"] button {
+    background: transparent !important;
+    color: #111827 !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-weight: 400 !important;
+}
+
+/* Sobrescreve para dark via classe injetada pelo JS detector de tema */
+body.gh-dark-mode div[data-baseweb="calendar"] button {
+    color: #E5E7EB !important;
+    background: transparent !important;
+    border: none !important;
+}
+@media (prefers-color-scheme: dark) {
+    div[data-baseweb="calendar"] button {
+        color: #E5E7EB !important;
+        background: transparent !important;
+    }
+}
+
 /* MOBILE */
 @media (max-width: 768px) {
   [data-testid="stSidebar"] { display: none !important; }
@@ -873,165 +898,320 @@ def pagina_inicio():
         st.markdown(_dp_html, unsafe_allow_html=True)
 
         # ── CALENDÁRIO ─────────────────────────────────────────────────────────
-        st.markdown("""<style>
-        /* Card wrapper para o calendário */
-        div[data-testid="stDateInput"] {
-            background: #fff !important;
-            border: 1px solid rgba(13,13,13,.08) !important;
-            border-radius: 14px !important;
-            padding: 14px 16px 10px !important;
-            margin-top: 12px !important;
-        }
-        div[data-testid="stDateInput"] label {
-            font-size: 13px !important; font-weight: 500 !important;
-            color: #0D0D0D !important; display: block !important;
-            padding-bottom: 10px !important;
-            border-bottom: 1px solid rgba(13,13,13,.07) !important;
-            margin-bottom: 10px !important;
-        }
-        div[data-testid="stDateInput"] input {
-            background: #F5F3EF !important; border: 1px solid #E5E7EB !important;
-            border-radius: 8px !important; color: #111827 !important;
-            font-size: 13px !important; padding: 8px 12px !important;
-        }
-        div[data-testid="stDateInput"] > div > div {
-            background: transparent !important; border: none !important; box-shadow: none !important;
-        }
-        /* Calendário popup */
-        div[data-baseweb="calendar"] {
-            background: #fff !important; border: 1px solid #E5E7EB !important;
-            border-radius: 12px !important; box-shadow: 0 8px 24px rgba(0,0,0,.10) !important;
-        }
-        div[data-baseweb="calendar"] * { font-family: 'DM Sans', sans-serif !important; }
-        div[data-baseweb="calendar"] button {
-            background: transparent !important; color: #111827 !important;
-            border-radius: 50% !important; border: none !important;
-            font-size: 13px !important;
-        }
-        div[data-baseweb="calendar"] button:hover { background: #F3F4F6 !important; }
-        div[data-baseweb="calendar"] div[aria-selected="true"] button {
-            background: #E8533C !important; color: #fff !important; font-weight: 700 !important;
-        }
-        div[data-baseweb="calendar"] div[data-today="true"] button {
-            border: 2px solid #E8533C !important; color: #E8533C !important;
-        }
-        div[data-baseweb="calendar"] div[data-outside-month="true"] button { color: #D1D5DB !important; }
-        div[data-baseweb="calendar"] div[role="columnheader"] {
-            color: #9CA3AF !important; font-size: 11px !important; font-weight: 600 !important;
-        }
-        /* Cabeçalho do mês (selects de mês/ano) */
-        div[data-baseweb="calendar"] select {
-            background: #fff !important; color: #0D0D0D !important;
-            border: 1px solid #E5E7EB !important; border-radius: 6px !important;
-            font-size: 13px !important; font-weight: 500 !important;
-            padding: 2px 6px !important;
-        }
-        div[data-baseweb="calendar"] select option { color: #0D0D0D !important; }
-        /* Setas de navegação */
-        div[data-baseweb="calendar"] button[aria-label*="previous"],
-        div[data-baseweb="calendar"] button[aria-label*="next"],
-        div[data-baseweb="calendar"] button[aria-label*="Previous"],
-        div[data-baseweb="calendar"] button[aria-label*="Next"] {
-            background: transparent !important; color: #374151 !important;
-            border-radius: 8px !important;
-        }
-        div[data-baseweb="calendar"] button[aria-label*="previous"]:hover,
-        div[data-baseweb="calendar"] button[aria-label*="next"]:hover,
-        div[data-baseweb="calendar"] button[aria-label*="Previous"]:hover,
-        div[data-baseweb="calendar"] button[aria-label*="Next"]:hover {
-            background: #F3F4F6 !important;
-        }
+        st.markdown("""
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   CALENDÁRIO — Light mode base
+   ═══════════════════════════════════════════════════════════════ */
 
-        /* ── DARK MODE — correção de visibilidade do calendário ── */
-        [data-theme="dark"] div[data-testid="stDateInput"] {
-            background: #1f2937 !important;
-            border-color: rgba(255,255,255,.10) !important;
+/* Card wrapper */
+div[data-testid="stDateInput"] {
+    background: #fff !important;
+    border: 1px solid rgba(13,13,13,.08) !important;
+    border-radius: 14px !important;
+    padding: 14px 16px 10px !important;
+    margin-top: 12px !important;
+}
+div[data-testid="stDateInput"] label {
+    font-size: 13px !important; font-weight: 500 !important;
+    color: #0D0D0D !important; display: block !important;
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid rgba(13,13,13,.07) !important;
+    margin-bottom: 10px !important;
+}
+div[data-testid="stDateInput"] input {
+    background: #F5F3EF !important; border: 1px solid #E5E7EB !important;
+    border-radius: 8px !important; color: #111827 !important;
+    font-size: 13px !important; padding: 8px 12px !important;
+}
+div[data-testid="stDateInput"] > div > div {
+    background: transparent !important; border: none !important; box-shadow: none !important;
+}
+
+/* Popup do calendário — light */
+div[data-baseweb="calendar"] {
+    background: #fff !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.10) !important;
+}
+div[data-baseweb="calendar"] * {
+    font-family: 'DM Sans', sans-serif !important;
+    color: #111827 !important;
+}
+div[data-baseweb="calendar"] button {
+    background: transparent !important;
+    color: #111827 !important;
+    border-radius: 50% !important;
+    border: none !important;
+    font-size: 13px !important;
+}
+div[data-baseweb="calendar"] button:hover {
+    background: #F3F4F6 !important;
+    color: #111827 !important;
+}
+div[data-baseweb="calendar"] div[aria-selected="true"] button {
+    background: #E8533C !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+}
+div[data-baseweb="calendar"] div[data-today="true"] button {
+    border: 2px solid #E8533C !important;
+    color: #E8533C !important;
+}
+div[data-baseweb="calendar"] div[data-outside-month="true"] button {
+    color: #D1D5DB !important;
+}
+div[data-baseweb="calendar"] div[role="columnheader"],
+div[data-baseweb="calendar"] div[role="columnheader"] * {
+    color: #9CA3AF !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+div[data-baseweb="calendar"] select {
+    background: #fff !important; color: #0D0D0D !important;
+    border: 1px solid #E5E7EB !important; border-radius: 6px !important;
+    font-size: 13px !important; font-weight: 500 !important;
+    padding: 2px 6px !important;
+}
+div[data-baseweb="calendar"] select option { color: #0D0D0D !important; background: #fff !important; }
+div[data-baseweb="calendar"] button[aria-label*="previous"],
+div[data-baseweb="calendar"] button[aria-label*="next"],
+div[data-baseweb="calendar"] button[aria-label*="Previous"],
+div[data-baseweb="calendar"] button[aria-label*="Next"] {
+    background: transparent !important; color: #374151 !important;
+    border-radius: 8px !important;
+}
+div[data-baseweb="calendar"] button[aria-label*="previous"]:hover,
+div[data-baseweb="calendar"] button[aria-label*="next"]:hover,
+div[data-baseweb="calendar"] button[aria-label*="Previous"]:hover,
+div[data-baseweb="calendar"] button[aria-label*="Next"]:hover {
+    background: #F3F4F6 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CALENDÁRIO — Dark mode
+   Estratégia tripla:
+   1) .gh-dark-mode  (classe injetada via JS que detecta o tema Streamlit)
+   2) @media prefers-color-scheme: dark  (preferência do sistema)
+   3) .stApp[data-theme="dark"]  (atributo alternativo do Streamlit)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* --- Bloco de regras dark compartilhado via classe .gh-dark-mode no <body> --- */
+body.gh-dark-mode div[data-testid="stDateInput"],
+body.gh-dark-mode div[data-baseweb="popover"] div[data-testid="stDateInput"] {
+    background: #1E2130 !important;
+    border-color: rgba(255,255,255,.12) !important;
+}
+body.gh-dark-mode div[data-testid="stDateInput"] label {
+    color: #E5E7EB !important;
+    border-bottom-color: rgba(255,255,255,.08) !important;
+}
+body.gh-dark-mode div[data-testid="stDateInput"] input {
+    background: #141622 !important;
+    border-color: rgba(255,255,255,.14) !important;
+    color: #F9FAFB !important;
+}
+
+/* Popup dark */
+body.gh-dark-mode div[data-baseweb="calendar"],
+body.gh-dark-mode div[data-baseweb="popover"] div[data-baseweb="calendar"] {
+    background: #1E2130 !important;
+    border-color: rgba(255,255,255,.10) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,.55) !important;
+}
+
+/* TODOS os textos/elementos dentro do calendário — reset forçado */
+body.gh-dark-mode div[data-baseweb="calendar"],
+body.gh-dark-mode div[data-baseweb="calendar"] *,
+body.gh-dark-mode div[data-baseweb="calendar"] div,
+body.gh-dark-mode div[data-baseweb="calendar"] span,
+body.gh-dark-mode div[data-baseweb="calendar"] button,
+body.gh-dark-mode div[data-baseweb="calendar"] [role="gridcell"],
+body.gh-dark-mode div[data-baseweb="calendar"] [role="gridcell"] *,
+body.gh-dark-mode div[data-baseweb="calendar"] [role="row"] *,
+body.gh-dark-mode div[data-baseweb="calendar"] [role="columnheader"] * {
+    color: #E5E7EB !important;
+    background-color: transparent !important;
+}
+
+/* Botões dos dias — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] button {
+    background: transparent !important;
+    color: #E5E7EB !important;
+    border: none !important;
+    border-radius: 50% !important;
+}
+body.gh-dark-mode div[data-baseweb="calendar"] button:hover {
+    background: rgba(255,255,255,.12) !important;
+    color: #fff !important;
+}
+
+/* Dia selecionado — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] div[aria-selected="true"] button,
+body.gh-dark-mode div[data-baseweb="calendar"] [aria-selected="true"] button {
+    background: #E8533C !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    border-radius: 50% !important;
+}
+
+/* Dia de hoje — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] div[data-today="true"] button {
+    border: 2px solid #E8533C !important;
+    color: #E8533C !important;
+    background: transparent !important;
+}
+
+/* Dias fora do mês — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] div[data-outside-month="true"] button {
+    color: rgba(229,231,235,.28) !important;
+}
+
+/* Cabeçalhos dos dias da semana — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] div[role="columnheader"],
+body.gh-dark-mode div[data-baseweb="calendar"] div[role="columnheader"] * {
+    color: rgba(229,231,235,.50) !important;
+    background: transparent !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+
+/* Selects de mês/ano — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] select {
+    background: #141622 !important;
+    color: #E5E7EB !important;
+    border: 1px solid rgba(255,255,255,.15) !important;
+    border-radius: 6px !important;
+}
+body.gh-dark-mode div[data-baseweb="calendar"] select option {
+    background: #1E2130 !important;
+    color: #E5E7EB !important;
+}
+
+/* Setas de navegação — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="previous"],
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="next"],
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="Previous"],
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="Next"] {
+    background: transparent !important;
+    color: rgba(229,231,235,.75) !important;
+    border-radius: 8px !important;
+    border: none !important;
+}
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="previous"]:hover,
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="next"]:hover,
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="Previous"]:hover,
+body.gh-dark-mode div[data-baseweb="calendar"] button[aria-label*="Next"]:hover {
+    background: rgba(255,255,255,.10) !important;
+}
+
+/* Fundo da grade do calendário (cell rows) — dark */
+body.gh-dark-mode div[data-baseweb="calendar"] [role="row"],
+body.gh-dark-mode div[data-baseweb="calendar"] [role="presentation"] {
+    background: transparent !important;
+}
+
+/* ── Fallback: @media prefers-color-scheme (cobre quando JS não carregou) ── */
+@media (prefers-color-scheme: dark) {
+    div[data-baseweb="calendar"] {
+        background: #1E2130 !important;
+        border-color: rgba(255,255,255,.10) !important;
+        box-shadow: 0 12px 40px rgba(0,0,0,.55) !important;
+    }
+    div[data-baseweb="calendar"],
+    div[data-baseweb="calendar"] *,
+    div[data-baseweb="calendar"] button,
+    div[data-baseweb="calendar"] [role="gridcell"],
+    div[data-baseweb="calendar"] [role="gridcell"] * {
+        color: #E5E7EB !important;
+        background-color: transparent !important;
+    }
+    div[data-baseweb="calendar"] button {
+        background: transparent !important;
+        color: #E5E7EB !important;
+        border: none !important;
+        border-radius: 50% !important;
+    }
+    div[data-baseweb="calendar"] button:hover {
+        background: rgba(255,255,255,.12) !important;
+    }
+    div[data-baseweb="calendar"] div[aria-selected="true"] button {
+        background: #E8533C !important;
+        color: #fff !important;
+    }
+    div[data-baseweb="calendar"] div[data-today="true"] button {
+        border: 2px solid #E8533C !important;
+        color: #E8533C !important;
+        background: transparent !important;
+    }
+    div[data-baseweb="calendar"] div[data-outside-month="true"] button {
+        color: rgba(229,231,235,.28) !important;
+    }
+    div[data-baseweb="calendar"] div[role="columnheader"],
+    div[data-baseweb="calendar"] div[role="columnheader"] * {
+        color: rgba(229,231,235,.50) !important;
+    }
+    div[data-baseweb="calendar"] select {
+        background: #141622 !important;
+        color: #E5E7EB !important;
+        border-color: rgba(255,255,255,.15) !important;
+    }
+    div[data-baseweb="calendar"] button[aria-label*="previous"],
+    div[data-baseweb="calendar"] button[aria-label*="next"],
+    div[data-baseweb="calendar"] button[aria-label*="Previous"],
+    div[data-baseweb="calendar"] button[aria-label*="Next"] {
+        color: rgba(229,231,235,.75) !important;
+        background: transparent !important;
+    }
+}
+</style>
+
+<script>
+/* ── Detector de tema Streamlit — injeta .gh-dark-mode no body ──
+   O Streamlit não expõe [data-theme] no DOM público; a estratégia
+   mais confiável é ler a variável CSS --background-color definida
+   pelo tema e comparar sua luminância.                              */
+(function ghDetectTheme() {
+    function applyTheme() {
+        try {
+            var app = document.querySelector('.stApp') || document.body;
+            var bg  = window.getComputedStyle(app).backgroundColor;
+            // Extrai r,g,b do rgb(r, g, b)
+            var m = bg.match(/\\d+/g);
+            if (!m || m.length < 3) return;
+            var r = parseInt(m[0]), g = parseInt(m[1]), b = parseInt(m[2]);
+            // Luminância relativa (fórmula WCAG)
+            var lum = (0.299 * r + 0.587 * g + 0.114 * b);
+            if (lum < 128) {
+                document.body.classList.add('gh-dark-mode');
+            } else {
+                document.body.classList.remove('gh-dark-mode');
+            }
+        } catch(e) {}
+    }
+    // Roda imediatamente e também observa mudanças no DOM
+    applyTheme();
+    var obs = new MutationObserver(function(muts) {
+        // Só re-detecta se houver mudança de atributo class no .stApp
+        for (var i = 0; i < muts.length; i++) {
+            if (muts[i].target.classList &&
+                (muts[i].target.classList.contains('stApp') ||
+                 muts[i].target === document.body)) {
+                applyTheme(); break;
+            }
         }
-        [data-theme="dark"] div[data-testid="stDateInput"] label {
-            color: #F5F3EF !important;
-            border-bottom-color: rgba(255,255,255,.08) !important;
-        }
-        [data-theme="dark"] div[data-testid="stDateInput"] input {
-            background: #111827 !important;
-            border-color: rgba(255,255,255,.12) !important;
-            color: #F5F3EF !important;
-        }
-        /* Popup do calendário em dark */
-        [data-theme="dark"] div[data-baseweb="calendar"] {
-            background: #1f2937 !important;
-            border-color: rgba(255,255,255,.10) !important;
-            box-shadow: 0 8px 32px rgba(0,0,0,.45) !important;
-        }
-        /* Todos os textos dentro do calendário */
-        [data-theme="dark"] div[data-baseweb="calendar"] *,
-        [data-theme="dark"] div[data-baseweb="calendar"] div[role="gridcell"],
-        [data-theme="dark"] div[data-baseweb="calendar"] div[role="gridcell"] * {
-            color: #F5F3EF !important;
-        }
-        /* Botões dos dias */
-        [data-theme="dark"] div[data-baseweb="calendar"] button {
-            background: transparent !important;
-            color: #F5F3EF !important;
-        }
-        [data-theme="dark"] div[data-baseweb="calendar"] button:hover {
-            background: rgba(255,255,255,.10) !important;
-            color: #fff !important;
-        }
-        /* Dia selecionado */
-        [data-theme="dark"] div[data-baseweb="calendar"] div[aria-selected="true"] button {
-            background: #ef4444 !important;
-            color: #fff !important;
-            font-weight: 700 !important;
-        }
-        /* Dia atual */
-        [data-theme="dark"] div[data-baseweb="calendar"] div[data-today="true"] button {
-            border: 2px solid #ef4444 !important;
-            color: #ef4444 !important;
-        }
-        /* Dias fora do mês */
-        [data-theme="dark"] div[data-baseweb="calendar"] div[data-outside-month="true"] button {
-            color: rgba(255,255,255,.25) !important;
-        }
-        /* Cabeçalhos dos dias da semana */
-        [data-theme="dark"] div[data-baseweb="calendar"] div[role="columnheader"],
-        [data-theme="dark"] div[data-baseweb="calendar"] div[role="columnheader"] * {
-            color: rgba(255,255,255,.45) !important;
-        }
-        /* Selects de mês/ano */
-        [data-theme="dark"] div[data-baseweb="calendar"] select {
-            background: #111827 !important;
-            color: #F5F3EF !important;
-            border-color: rgba(255,255,255,.15) !important;
-        }
-        [data-theme="dark"] div[data-baseweb="calendar"] select option {
-            background: #1f2937 !important;
-            color: #F5F3EF !important;
-        }
-        /* Setas de navegação */
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="previous"],
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="next"],
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="Previous"],
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="Next"] {
-            background: transparent !important;
-            color: rgba(255,255,255,.70) !important;
-        }
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="previous"]:hover,
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="next"]:hover,
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="Previous"]:hover,
-        [data-theme="dark"] div[data-baseweb="calendar"] button[aria-label*="Next"]:hover {
-            background: rgba(255,255,255,.10) !important;
-        }
-        /* Garante que o gridcell e todos os filhos sejam visíveis no dark */
-        [data-theme="dark"] div[data-baseweb="calendar"] [role="gridcell"],
-        [data-theme="dark"] div[data-baseweb="calendar"] [role="gridcell"] button,
-        [data-theme="dark"] div[data-baseweb="calendar"] [role="gridcell"] div {
-            color: #F5F3EF !important;
-        }
-        /* Correção via data-testid para o input nativo do Streamlit em dark */
-        [data-theme="dark"] [data-testid="stDateInput"] div[role="gridcell"] {
-            color: #F5F3EF !important;
-        }
-        </style>""", unsafe_allow_html=True)
+    });
+    obs.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['class','style'] });
+    // Também roda em intervalos curtos nos primeiros 3 segundos (garante pós-hydration)
+    var ticks = 0;
+    var iv = setInterval(function() {
+        applyTheme();
+        if (++ticks >= 6) clearInterval(iv);
+    }, 500);
+})();
+</script>
+""", unsafe_allow_html=True)
 
         _nova_data = st.date_input(
             "Calendário", value=data_sel, key="cal_date_input",
