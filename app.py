@@ -597,9 +597,13 @@ def pagina_inicio():
         if eventos == "EXPIRADO":
             st.session_state.clear(); st.rerun()
 
-        _TL_START = datetime(data_sel.year, data_sel.month, data_sel.day, 8,  0, tzinfo=TZ_SP)
-        _TL_END   = datetime(data_sel.year, data_sel.month, data_sel.day, 18, 48, tzinfo=TZ_SP)
+        def _fmt_dur(a, b):
+            d = int((b - a).total_seconds() / 60)
+            if d <= 0: return ""
+            h, m = divmod(d, 60)
+            return f"{h}h{m:02d}" if h and m else f"{h}h" if h else f"{m}min"
 
+        # Coleta TODOS os eventos sem cortar por horário
         _ev_data = []
         for ev in eventos:
             if ev.get("_allday"): continue
@@ -609,7 +613,6 @@ def pagina_inicio():
                 if s.tzinfo is None: s = s.tz_localize("UTC")
                 if e.tzinfo is None: e = e.tz_localize("UTC")
                 s = s.tz_convert(TZ_SP); e = e.tz_convert(TZ_SP)
-                s = max(s, _TL_START);   e = min(e, _TL_END)
                 if s >= e: continue
                 lnk = (ev.get("onlineMeeting") or {}).get("joinUrl") or ev.get("onlineMeetingUrl","")
                 u   = ev.get("onlineMeetingUrl","") or ""
@@ -618,31 +621,34 @@ def pagina_inicio():
             except Exception: continue
 
         _ev_data.sort(key=lambda x: x[0])
-        _merged = []
-        for s, e, subj, lnk, plt in _ev_data:
-            if _merged and s <= _merged[-1][1]:
-                ps, pe, psubj, plnk, pplt = _merged[-1]
-                _merged[-1] = (ps, max(pe, e), psubj, plnk, pplt)
-            else:
-                _merged.append((s, e, subj, lnk, plt))
 
-        def _fmt_dur(a, b):
-            d = int((b - a).total_seconds() / 60)
-            if d <= 0: return ""
-            h, m = divmod(d, 60)
-            return f"{h}h{m:02d}" if h and m else f"{h}h" if h else f"{m}min"
+        # Define janela dinâmica: do início da 1ª reunião até o fim da última
+        # (ou 08:00–18:00 se não houver eventos)
+        _DEFAULT_START = datetime(data_sel.year, data_sel.month, data_sel.day, 8,  0, tzinfo=TZ_SP)
+        _DEFAULT_END   = datetime(data_sel.year, data_sel.month, data_sel.day, 18, 0, tzinfo=TZ_SP)
+        if _ev_data:
+            _TL_START = min(_ev_data[0][0], _DEFAULT_START)
+            _TL_END   = max(_ev_data[-1][1], _DEFAULT_END)
+        else:
+            _TL_START = _DEFAULT_START
+            _TL_END   = _DEFAULT_END
 
+        # NÃO mescla reuniões — cada uma aparece individualmente
+        # Reuniões sobrepostas são mostradas separadamente na timeline
         _timeline = []
         cursor = _TL_START
-        for s, e, subj, lnk, plt in _merged:
+        for s, e, subj, lnk, plt in _ev_data:
+            # Bloco livre antes desta reunião (se houver gap)
             if s > cursor:
                 _timeline.append({"type":"livre","hi":cursor.strftime("%H:%M"),
                                    "hf":s.strftime("%H:%M"),"dur":_fmt_dur(cursor,s),
                                    "subject":"","link":"","platform":""})
+            # A própria reunião
             _timeline.append({"type":"ocupado","hi":s.strftime("%H:%M"),
                                "hf":e.strftime("%H:%M"),"dur":_fmt_dur(s,e),
                                "subject":subj,"link":lnk,"platform":plt})
-            cursor = e
+            cursor = max(cursor, e)
+        # Bloco livre após a última reunião
         if cursor < _TL_END:
             _timeline.append({"type":"livre","hi":cursor.strftime("%H:%M"),
                                "hf":_TL_END.strftime("%H:%M"),"dur":_fmt_dur(cursor,_TL_END),
