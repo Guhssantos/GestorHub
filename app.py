@@ -941,6 +941,34 @@ def pagina_inicio():
             "Calendário", value=data_sel, key="cal_date_input",
             format="DD/MM/YYYY",
         )
+
+        # Traduz o calendário para português via JS
+        st.markdown("""
+        <script>
+        (function translateCalendar() {
+            var DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+            var MESES_EN = ['January','February','March','April','May','June',
+                            'July','August','September','October','November','December'];
+            var MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                            'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+            function translate() {
+                document.querySelectorAll('div[role="columnheader"]').forEach(function(el, i) {
+                    if (DIAS[i]) el.textContent = DIAS[i];
+                });
+                document.querySelectorAll('div[data-baseweb="calendar"] select').forEach(function(sel) {
+                    Array.from(sel.options).forEach(function(opt) {
+                        var idx = MESES_EN.indexOf(opt.text.trim());
+                        if (idx !== -1) opt.text = MESES_PT[idx];
+                    });
+                });
+            }
+            var obs = new MutationObserver(translate);
+            obs.observe(document.body, { childList: true, subtree: true });
+            translate();
+        })();
+        </script>
+        """, unsafe_allow_html=True)
+
         if _nova_data != data_sel:
             st.session_state["data_agenda"] = _nova_data
             st.session_state["cal_month"]   = _nova_data.replace(day=1)
