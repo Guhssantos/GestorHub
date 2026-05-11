@@ -866,181 +866,61 @@ def pagina_inicio():
               '</div></div>')
         st.markdown(_dp_html, unsafe_allow_html=True)
 
-        # ── CALENDÁRIO ─────────────────────────────────────────────────────
-        # Usa st.button nativo — sem iframes, sem cross-origin, sem query params
-        # O estado fica 100% no session_state, rerun mantém a sessão intacta.
+        st.markdown(_dp_html, unsafe_allow_html=True)
 
-        hoje_c = datetime.now(tz=TZ_SP).date()
-        vm_y, vm_m = cal_month.year, cal_month.month
+        # ── CALENDÁRIO ─────────────────────────────────────────────────────────
+        st.markdown("""<style>
+        div[data-testid="stDateInput"] label { display:none !important; }
+        div[data-testid="stDateInput"] input {
+            background:#fff !important; border:1px solid #E5E7EB !important;
+            border-radius:8px !important; color:#111827 !important;
+            font-size:13px !important; padding:8px 12px !important;
+        }
+        div[data-testid="stDateInput"] > div > div {
+            background:#fff !important; border:none !important; box-shadow:none !important;
+        }
+        div[data-baseweb="calendar"] {
+            background:#fff !important; border:1px solid #E5E7EB !important;
+            border-radius:12px !important; box-shadow:0 8px 24px rgba(0,0,0,.10) !important;
+        }
+        div[data-baseweb="calendar"] button {
+            background:transparent !important; color:#111827 !important; border-radius:50% !important;
+        }
+        div[data-baseweb="calendar"] button:hover { background:#F3F4F6 !important; }
+        div[data-baseweb="calendar"] div[aria-selected="true"] button {
+            background:#4361EE !important; color:#fff !important; font-weight:700 !important;
+        }
+        div[data-baseweb="calendar"] div[data-today="true"] button {
+            border:2px solid #4361EE !important; color:#4361EE !important;
+        }
+        div[data-baseweb="calendar"] div[data-outside-month="true"] button {
+            color:#D1D5DB !important;
+        }
+        div[data-baseweb="calendar"] button[aria-label*="previous"],
+        div[data-baseweb="calendar"] button[aria-label*="next"],
+        div[data-baseweb="calendar"] button[aria-label*="Previous"],
+        div[data-baseweb="calendar"] button[aria-label*="Next"] {
+            background:transparent !important; color:#374151 !important; border:none !important;
+        }
+        div[data-baseweb="calendar"] div[role="columnheader"] {
+            color:#9CA3AF !important; font-size:11px !important; font-weight:600 !important;
+        }
+        </style>""", unsafe_allow_html=True)
 
-        # Prev / next month
-        if vm_m == 1:  prev_m = date(vm_y-1, 12, 1)
-        else:          prev_m = date(vm_y, vm_m-1, 1)
-        if vm_m == 12: next_m = date(vm_y+1, 1, 1)
-        else:          next_m = date(vm_y, vm_m+1, 1)
+        st.markdown("""<div style="background:#fff;border:1px solid rgba(13,13,13,.08);
+            border-radius:14px;padding:14px 16px 4px;margin-top:12px;">
+            <p style="font-size:13px;font-weight:500;color:#0D0D0D;margin:0 0 12px;
+            border-bottom:1px solid rgba(13,13,13,.07);padding-bottom:10px;">Calendário</p>
+            </div>""", unsafe_allow_html=True)
 
-        # 42 células fixas (6 linhas × 7 colunas)
-        first_dow    = (date(vm_y, vm_m, 1).weekday() + 1) % 7   # 0 = Domingo
-        days_in_mon  = (next_m - date(vm_y, vm_m, 1)).days
-        days_in_prev = (date(vm_y, vm_m, 1) - prev_m).days
-        cells: list[date] = []
-        for i in range(first_dow):
-            cells.append(date(prev_m.year, prev_m.month, days_in_prev - first_dow + 1 + i))
-        for d in range(1, days_in_mon + 1):
-            cells.append(date(vm_y, vm_m, d))
-        trail = 1
-        while len(cells) < 42:
-            cells.append(date(next_m.year, next_m.month, trail)); trail += 1
-
-        # CSS do calendário — gerado dinamicamente com estado de cada célula
-        sel_idx   = next((i for i, dt in enumerate(cells) if dt == data_sel), -1)
-        today_idx = next((i for i, dt in enumerate(cells) if dt == hoje_c),   -1)
-        out_set   = {i for i, dt in enumerate(cells) if dt.month != vm_m}
-
-        # Seletores nth-child baseados na ordem dos st.columns no DOM
-        def _sel(row, col):
-            return (f'div.cal-grid-wrap > div[data-testid="stHorizontalBlock"]:nth-of-type({row+1})'
-                    f' > div[data-testid="stColumn"]:nth-child({col+1}) button')
-
-        _css_out   = "\n".join(
-            f'{_sel(i//7, i%7)}{{color:#C8C8C8!important;}}'
-            for i in out_set)
-        _css_today = (f'{_sel(today_idx//7, today_idx%7)}'
-                      f'{{background:#F0F0F0!important;color:#111!important;font-weight:600!important;}}'
-                      if today_idx >= 0 else "")
-        _css_sel   = (f'{_sel(sel_idx//7, sel_idx%7)}'
-                      f'{{background:#4361EE!important;color:#fff!important;'
-                      f'font-weight:700!important;box-shadow:0 0 0 3px rgba(67,97,238,.25)!important;}}'
-                      if sel_idx >= 0 else "")
-
-        st.markdown(f"""
-<style>
-/* ── Card wrapper ── */
-.cal-card {{
-    background:#fff;
-    border:1px solid rgba(13,13,13,.08);
-    border-radius:16px;
-    padding:16px 14px 14px;
-    margin-top:12px;
-}}
-/* ── Título do mês ── */
-.cal-month-title {{
-    text-align:center;
-    font-size:16px;
-    font-weight:700;
-    color:#111827;
-    letter-spacing:-.4px;
-    margin-bottom:12px;
-    font-family:'DM Sans',sans-serif;
-}}
-/* ── Dias da semana ── */
-.cal-dows {{
-    display:grid;
-    grid-template-columns:repeat(7,1fr);
-    margin-bottom:2px;
-}}
-.cal-dow {{
-    text-align:center;
-    font-size:11px;
-    font-weight:500;
-    color:#9CA3AF;
-    padding:4px 0;
-    font-family:'DM Sans',sans-serif;
-}}
-/* ── Botões nav ── */
-div.cal-nav-area div[data-testid="stHorizontalBlock"] {{
-    gap:0!important;
-}}
-div.cal-nav-area button[data-testid="baseButton-secondary"] {{
-    background:transparent!important;
-    border:none!important;
-    box-shadow:none!important;
-    color:#9CA3AF!important;
-    min-height:0!important;
-    height:32px!important;
-    width:100%!important;
-    font-size:18px!important;
-    padding:0!important;
-    cursor:pointer!important;
-    border-radius:8px!important;
-    transition:color .12s!important;
-    font-weight:400!important;
-}}
-div.cal-nav-area button[data-testid="baseButton-secondary"]:hover {{
-    color:#111827!important;
-    background:#F3F4F6!important;
-}}
-/* ── Grid de dias ── */
-div.cal-grid-wrap div[data-testid="stHorizontalBlock"] {{
-    gap:0!important;
-}}
-div.cal-grid-wrap div[data-testid="stColumn"] {{
-    padding:2px!important;
-    min-width:0!important;
-    flex:1!important;
-}}
-/* Base dos botões de dia — completamente transparente, sem borda, sem sombra */
-div.cal-grid-wrap button[data-testid="baseButton-secondary"] {{
-    width:100%!important;
-    aspect-ratio:1/1!important;
-    background:transparent!important;
-    border:none!important;
-    box-shadow:none!important;
-    border-radius:50%!important;
-    font-size:13px!important;
-    font-family:'DM Sans',sans-serif!important;
-    font-weight:400!important;
-    color:#111827!important;
-    padding:0!important;
-    min-height:0!important;
-    cursor:pointer!important;
-    transition:background .1s!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:center!important;
-}}
-div.cal-grid-wrap button[data-testid="baseButton-secondary"]:hover {{
-    background:#F3F4F6!important;
-    color:#111827!important;
-}}
-/* Estados dinâmicos por posição */
-{_css_out}
-{_css_today}
-{_css_sel}
-</style>
-<div class="cal-card">
-  <div class="cal-month-title">{MESES_PT[vm_m-1]} {vm_y}</div>
-  <div class="cal-dows">
-    {"".join(f'<div class="cal-dow">{d}</div>' for d in DIAS_SEM)}
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-        # Botões de navegação — dentro de área marcada para CSS
-        st.markdown('<div class="cal-nav-area">', unsafe_allow_html=True)
-        _nc1, _nc2, _nc3 = st.columns([1, 6, 1])
-        with _nc1:
-            if st.button("‹", key="cal_prev"):
-                st.session_state["cal_month"] = prev_m
-                st.rerun()
-        with _nc3:
-            if st.button("›", key="cal_next"):
-                st.session_state["cal_month"] = next_m
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Grade de dias
-        st.markdown('<div class="cal-grid-wrap">', unsafe_allow_html=True)
-        for row_i in range(6):
-            cols = st.columns(7)
-            for ci in range(7):
-                dt = cells[row_i * 7 + ci]
-                with cols[ci]:
-                    if st.button(str(dt.day), key=f"cd_{dt.isoformat()}"):
-                        st.session_state["data_agenda"] = dt
-                        st.session_state["cal_month"]   = dt.replace(day=1)
-                        st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        _nova_data = st.date_input(
+            "Data", value=data_sel, key="cal_date_input",
+            format="DD/MM/YYYY", label_visibility="collapsed",
+        )
+        if _nova_data != data_sel:
+            st.session_state["data_agenda"] = _nova_data
+            st.session_state["cal_month"]   = _nova_data.replace(day=1)
+            st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
