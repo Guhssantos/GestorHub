@@ -263,6 +263,21 @@ button[data-testid="collapsedControl"]  { display: none !important; }
 .dp-row-name  { font-size:11.5px; font-weight:500; color:#0D0D0D;
                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+/* DAY PULSE — eventos simultâneos (sobrepostos) */
+.dp-seg-overlap  { background: linear-gradient(180deg,#B5D4F4 0%,#F4B5B5 100%); }
+.dp-row-overlap  { align-items: flex-start !important; }
+.dp-pill-overlap { background:#FEF3CD; color:#8C5A00;
+                   font-size:9px; font-weight:600; letter-spacing:.04em;
+                   padding:2px 7px; border-radius:4px;
+                   display:inline-flex; align-items:center; align-self:flex-start; }
+.dp-overlap-item { display:flex; align-items:flex-start; gap:6px;
+                   padding:4px 0 2px; border-top:1px solid rgba(13,13,13,.06); }
+.dp-overlap-item:first-of-type { border-top: none; padding-top: 2px; }
+.dp-overlap-bar  { width:2px; border-radius:2px; background:#1A4F8A;
+                   align-self:stretch; min-height:22px; flex-shrink:0; margin-top:2px; }
+.dp-overlap-time { font-family:'DM Mono',monospace; font-size:9px; color:#8A8A8A;
+                   display:block; margin-bottom:1px; white-space:nowrap; }
+
 /* POWER BI */
 .pbi-wrap  { background:#fff; border:1px solid rgba(13,13,13,.09);
              border-radius:14px; padding:4px; overflow:hidden; }
@@ -796,9 +811,10 @@ def pagina_inicio():
             if sc < ec: _evs_clipped.append((sc, ec, subj))
         _evs_clipped.sort(key=lambda x: x[0])
 
+        # ── Versão mesclada usada apenas para cálculos de tempo ────────────
         merged = []
         for s, e, subj in _evs_clipped:
-            if merged and s <= merged[-1][1]:
+            if merged and s < merged[-1][1]:
                 merged[-1] = (merged[-1][0], max(merged[-1][1], e), merged[-1][2])
             else:
                 merged.append((s, e, subj))
@@ -840,36 +856,126 @@ def pagina_inicio():
 
         bar_color = "#1C6C4E" if pct_raw < 50 else "#8C5A00" if pct_raw < 80 else "#B83232"
 
-        _dp_timeline = []
-        _dp_cur = WIN_START
-        for s, e, subj in merged:
-            if s > _dp_cur:
-                _dp_timeline.append({"type":"livre","hi":_dp_cur.strftime("%H:%M"),
-                                     "hf":s.strftime("%H:%M"),"dur":_dp_fmt(_dp_cur,s),"subject":""})
-            _dp_timeline.append({"type":"ocupado","hi":s.strftime("%H:%M"),
-                                  "hf":e.strftime("%H:%M"),"dur":_dp_fmt(s,e),"subject":subj})
-            _dp_cur = e
-        if _dp_cur < WIN_END:
-            _dp_timeline.append({"type":"livre","hi":_dp_cur.strftime("%H:%M"),
-                                  "hf":WIN_END.strftime("%H:%M"),"dur":_dp_fmt(_dp_cur,WIN_END),"subject":""})
+        # ── Linha do tempo individual (igual à Agenda do dia) ───────────────
+        # Agrupa eventos sobrepostos em "slots" para exibição lado a lado.
+        # Um slot é uma lista de eventos que se sobrepõem entre si no tempo.
+        def _build_dp_slots(evs):
+            """
+            Retorna lista de entradas na ordem cronológica.
+            Cada entrada é um dict com type='livre'|'ocupado'|'grupo'.
+            'grupo' contém uma lista de eventos simultâneos.
+            """
+            if not evs:
+                return []
 
+            # Agrupa eventos sobrepostos: se o início de um evento for
+            # anterior ao fim do último evento do grupo atual, entram juntos.
+            groups = []   # cada grupo: lista de (s, e, subj)
+            for ev in evs:
+                s, e, subj = ev
+                if groups and s < max(x[1] for x in groups[-1]):
+                    groups[-1].append(ev)
+                else:
+                    groups.append([ev])
+
+            # Monta timeline intercalando blocos livres e grupos
+            slots = []
+            cursor = WIN_START
+            for grp in groups:
+                grp_start = min(x[0] for x in grp)
+                grp_end   = max(x[1] for x in grp)
+                # Bloco livre antes do grupo
+                if grp_start > cursor:
+                    slots.append({
+                        "type": "livre",
+                        "hi": cursor.strftime("%H:%M"),
+                        "hf": grp_start.strftime("%H:%M"),
+                        "dur": _dp_fmt(cursor, grp_start),
+                    })
+                # Grupo de eventos (1 ou mais simultâneos)
+                slots.append({
+                    "type": "grupo",
+                    "events": grp,
+                })
+                cursor = max(cursor, grp_end)
+            # Bloco livre após o último grupo
+            if cursor < WIN_END:
+                slots.append({
+                    "type": "livre",
+                    "hi": cursor.strftime("%H:%M"),
+                    "hf": WIN_END.strftime("%H:%M"),
+                    "dur": _dp_fmt(cursor, WIN_END),
+                })
+            return slots
+
+        _dp_slots = _build_dp_slots(_evs_clipped)
+
+        # ── Renderiza HTML da linha do tempo ────────────────────────────────
         _dp_rows = ""
-        for blk in _dp_timeline:
-            if blk["type"] == "ocupado":
+        for slot in _dp_slots:
+            if slot["type"] == "livre":
                 _dp_rows += (
-                    '<div class="dp-row"><div class="dp-times">'
-                    f'<span class="dp-t">{blk["hi"]}</span><span class="dp-t">{blk["hf"]}</span>'
-                    '</div><div class="dp-seg dp-seg-busy"></div><div class="dp-row-body">'
-                    f'<span class="dp-pill dp-pill-busy">Reunião · {blk["dur"]}</span>'
-                    f'<span class="dp-row-name">{html_lib.escape(blk["subject"])}</span>'
-                    '</div></div>')
+                    '<div class="dp-row">'
+                      '<div class="dp-times">'
+                        f'<span class="dp-t">{slot["hi"]}</span>'
+                        f'<span class="dp-t">{slot["hf"]}</span>'
+                      '</div>'
+                      '<div class="dp-seg dp-seg-free"></div>'
+                      '<div class="dp-row-body">'
+                        f'<span class="dp-pill dp-pill-free">Disponível · {slot["dur"]}</span>'
+                      '</div>'
+                    '</div>'
+                )
             else:
-                _dp_rows += (
-                    '<div class="dp-row"><div class="dp-times">'
-                    f'<span class="dp-t">{blk["hi"]}</span><span class="dp-t">{blk["hf"]}</span>'
-                    '</div><div class="dp-seg dp-seg-free"></div><div class="dp-row-body">'
-                    f'<span class="dp-pill dp-pill-free">Disponível · {blk["dur"]}</span>'
-                    '</div></div>')
+                grp = slot["events"]
+                if len(grp) == 1:
+                    # Evento único — layout normal
+                    s, e, subj = grp[0]
+                    _dp_rows += (
+                        '<div class="dp-row">'
+                          '<div class="dp-times">'
+                            f'<span class="dp-t">{s.strftime("%H:%M")}</span>'
+                            f'<span class="dp-t">{e.strftime("%H:%M")}</span>'
+                          '</div>'
+                          '<div class="dp-seg dp-seg-busy"></div>'
+                          '<div class="dp-row-body">'
+                            f'<span class="dp-pill dp-pill-busy">Reunião · {_dp_fmt(s,e)}</span>'
+                            f'<span class="dp-row-name">{html_lib.escape(subj)}</span>'
+                          '</div>'
+                        '</div>'
+                    )
+                else:
+                    # Múltiplos eventos simultâneos — agrupa em um bloco com
+                    # badge de sobreposição e lista cada reunião separada
+                    grp_start = min(x[0] for x in grp)
+                    grp_end   = max(x[1] for x in grp)
+                    n = len(grp)
+                    # Linha de horário do bloco
+                    _dp_rows += (
+                        '<div class="dp-row dp-row-overlap">'
+                          '<div class="dp-times">'
+                            f'<span class="dp-t">{grp_start.strftime("%H:%M")}</span>'
+                            f'<span class="dp-t">{grp_end.strftime("%H:%M")}</span>'
+                          '</div>'
+                          '<div class="dp-seg dp-seg-overlap"></div>'
+                          '<div class="dp-row-body" style="gap:4px;">'
+                            f'<span class="dp-pill dp-pill-overlap">'
+                              f'⚡ {n} simultâneas · {_dp_fmt(grp_start,grp_end)}'
+                            '</span>'
+                    )
+                    for s, e, subj in grp:
+                        _dp_rows += (
+                            '<div class="dp-overlap-item">'
+                              '<div class="dp-overlap-bar"></div>'
+                              '<div style="min-width:0;flex:1;">'
+                                f'<span class="dp-overlap-time">{s.strftime("%H:%M")}–{e.strftime("%H:%M")}</span>'
+                                f'<span class="dp-row-name" style="font-size:11px;">'
+                                  f'{html_lib.escape(subj)}'
+                                '</span>'
+                              '</div>'
+                            '</div>'
+                        )
+                    _dp_rows += '</div></div>'
 
         _dp_rows_or_empty = _dp_rows or '<div style="padding:14px 20px;font-size:12px;color:#8A8A8A;text-align:center;">Dia livre 🎉</div>'
 
