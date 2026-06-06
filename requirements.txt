@@ -3,3 +3,4 @@ pandas
 altair
 msal
 requests
+flask
