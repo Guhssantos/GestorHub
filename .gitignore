@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+
+# Streamlit secrets (nunca commitar credenciais)
+.streamlit/secrets.toml
+
+# Banco de dados local gerado pelo api.py
+resumos.json
+
+# Logs
+*.log

@@ -94,13 +94,6 @@ def buscar_usuario(token: str) -> dict:
     return {}
 
 
-def _parse_horario(ev: dict, campo: str) -> str:
-    raw = ev[campo]
-    if "dateTime" not in raw: return "–"
-    dt = pd.to_datetime(raw["dateTime"])
-    if dt.tzinfo is None: dt = dt.tz_localize("UTC")
-    return dt.tz_convert(TZ_SP).strftime("%H:%M")
-
 
 def _duracao_min(ev: dict) -> float:
     if ev.get("_allday"): return 0
