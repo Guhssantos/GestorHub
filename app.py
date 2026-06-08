@@ -30,7 +30,7 @@ CLIENT_ID     = _secret("AZURE_CLIENT_ID",     "SEU_CLIENT_ID_AQUI")
 CLIENT_SECRET = _secret("AZURE_CLIENT_SECRET", "SEU_CLIENT_SECRET_AQUI")
 AUTHORITY     = "https://login.microsoftonline.com/common"
 REDIRECT_URI  = _secret("REDIRECT_URI", "https://gestor-app.streamlit.app").rstrip("/")
-SCOPE         = ["User.Read", "Calendars.ReadWrite"]
+SCOPE         = ["User.Read", "Calendars.ReadWrite", "Files.Read"]
 TZ_SP         = ZoneInfo("America/Sao_Paulo")
 TZ_UTC        = ZoneInfo("UTC")
 POWER_BI_URL  = _secret(
@@ -1531,52 +1531,73 @@ body.gh-dark-mode div[data-baseweb="calendar"] [role="presentation"] {
 # PÁGINA: RESUMOS
 # ══════════════════════════════════════════════════════════════════════════════
 
-DB_RESUMOS = "resumos.json"
+DB_RESUMOS   = "resumos.json"
+# Caminho do arquivo Excel no OneDrive (configurável via secret EXCEL_FILE_PATH)
+# Exemplo: "GestorHub/resumos.xlsx"  →  raiz do OneDrive / pasta GestorHub
+_EXCEL_DEFAULT = "GestorHub/resumos.xlsx"
 
 
 @st.cache_data(ttl=120, show_spinner=False)
-def _carregar_resumos_sheets() -> list:
-    """Lê resumos do Google Sheets. Retorna [] se não configurado."""
-    creds_raw = _secret("GOOGLE_SHEETS_CREDENTIALS", "")
-    sheet_url = _secret("GOOGLE_SHEETS_URL", "")
-    if not creds_raw or not sheet_url:
+def _carregar_resumos_excel(token: str) -> list:
+    """
+    Lê a planilha Excel do OneDrive via Microsoft Graph API.
+    Usa o mesmo token OAuth já presente na sessão — sem credenciais extras.
+    Espera colunas: titulo | data | resumo | link | acoes
+    """
+    if not token:
         return []
+    excel_path = _secret("EXCEL_FILE_PATH", _EXCEL_DEFAULT)
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials as SACredentials
+        url = (
+            "https://graph.microsoft.com/v1.0/me/drive/root:/"
+            f"{excel_path}:/workbook/worksheets/Sheet1/usedRange"
+        )
+        r = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15,
+        )
+        if r.status_code == 404:
+            return []          # arquivo ainda não criado
+        if r.status_code == 401:
+            return []          # token expirado — sessão vai renovar no próximo ciclo
+        if not r.ok:
+            return []
 
-        creds_dict = json.loads(creds_raw)
-        scopes = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive",
-        ]
-        creds = SACredentials.from_service_account_info(creds_dict, scopes=scopes)
-        client = gspread.authorize(creds)
-        sheet = client.open_by_url(sheet_url).sheet1
-        rows = sheet.get_all_records()
+        values = r.json().get("values", [])
+        if len(values) < 2:   # só cabeçalho ou vazio
+            return []
 
+        headers = [str(h).lower().strip() for h in values[0]]
         resumos = []
-        for r in rows:
-            acoes_raw = r.get("acoes", "")
+        for row in values[1:]:
+            # Garante que a linha tem células suficientes
+            row = list(row) + [""] * max(0, len(headers) - len(row))
+            r_dict = dict(zip(headers, row))
+            # Ignora linhas completamente vazias
+            if not any(str(v).strip() for v in r_dict.values()):
+                continue
+            acoes_raw = str(r_dict.get("acoes", "") or "")
             try:
-                acoes = json.loads(acoes_raw) if acoes_raw else []
-            except (json.JSONDecodeError, TypeError):
+                acoes = json.loads(acoes_raw) if acoes_raw.startswith("[") else []
+            except (json.JSONDecodeError, ValueError):
                 acoes = []
             resumos.append({
-                "titulo": str(r.get("titulo", "")).strip(),
-                "data":   str(r.get("data",   "")).strip(),
-                "resumo": str(r.get("resumo", "")).strip(),
-                "link":   str(r.get("link",   "")).strip(),
+                "titulo": str(r_dict.get("titulo", "") or "").strip(),
+                "data":   str(r_dict.get("data",   "") or "").strip(),
+                "resumo": str(r_dict.get("resumo", "") or "").strip(),
+                "link":   str(r_dict.get("link",   "") or "").strip(),
                 "acoes":  acoes,
             })
-        return list(reversed(resumos))  # mais recentes primeiro
+        return list(reversed(resumos))   # mais recentes primeiro
     except Exception:
         return []
 
 
 def _carregar_resumos() -> list:
-    """Tenta Google Sheets; fallback para arquivo local (dev)."""
-    dados = _carregar_resumos_sheets()
+    """Lê do Excel/OneDrive; fallback para arquivo local (dev)."""
+    token = st.session_state.get("access_token", "")
+    dados = _carregar_resumos_excel(token) if token else []
     if dados:
         return dados
     if not os.path.exists(DB_RESUMOS):

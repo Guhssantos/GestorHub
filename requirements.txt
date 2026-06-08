@@ -4,5 +4,3 @@ altair
 msal
 requests
 flask
-gspread
-google-auth
