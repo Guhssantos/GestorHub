@@ -19,14 +19,21 @@ st.set_page_config(
 )
 
 # ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────────
-CLIENT_ID     = st.secrets.get("AZURE_CLIENT_ID",     "SEU_CLIENT_ID_AQUI")
-CLIENT_SECRET = st.secrets.get("AZURE_CLIENT_SECRET", "SEU_CLIENT_SECRET_AQUI")
+def _secret(key: str, default: str = "") -> str:
+    """Lê segredo com fallback seguro — compatível com qualquer versão do Streamlit."""
+    try:
+        return st.secrets[key] or default
+    except (KeyError, FileNotFoundError):
+        return default
+
+CLIENT_ID     = _secret("AZURE_CLIENT_ID",     "SEU_CLIENT_ID_AQUI")
+CLIENT_SECRET = _secret("AZURE_CLIENT_SECRET", "SEU_CLIENT_SECRET_AQUI")
 AUTHORITY     = "https://login.microsoftonline.com/common"
-REDIRECT_URI  = st.secrets.get("REDIRECT_URI", "https://gestor-app.streamlit.app")
+REDIRECT_URI  = _secret("REDIRECT_URI", "https://gestor-app.streamlit.app")
 SCOPE         = ["User.Read", "Calendars.ReadWrite"]
 TZ_SP         = ZoneInfo("America/Sao_Paulo")
 TZ_UTC        = ZoneInfo("UTC")
-POWER_BI_URL  = st.secrets.get(
+POWER_BI_URL  = _secret(
     "POWER_BI_URL",
     "https://app.powerbi.com/reportEmbed?reportId=15bea8e3-da1f-403a-a495-4f459f849c93&autoAuth=true&ctid=a94d3a29-8a64-40c2-966f-e9001602ae14",
 )

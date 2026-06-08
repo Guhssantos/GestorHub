@@ -1,13 +1,6 @@
-# ── Core (GestorHub app) ──────────────────────────────────────────────────────
-streamlit==1.45.1
-pandas==2.2.3
-altair==5.5.0
-msal==1.32.3
-requests==2.32.3
-flask==3.1.1
-
-# ── Integração tl;dv via Gmail (opcional — rode: pip install -r requirements-tldv.txt) ──
-# google-auth==2.40.0
-# google-auth-oauthlib==1.2.1
-# google-api-python-client==2.169.0
-# beautifulsoup4==4.13.4
+streamlit
+pandas
+altair
+msal
+requests
+flask
