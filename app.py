@@ -1534,7 +1534,51 @@ body.gh-dark-mode div[data-baseweb="calendar"] [role="presentation"] {
 DB_RESUMOS = "resumos.json"
 
 
+@st.cache_data(ttl=120, show_spinner=False)
+def _carregar_resumos_sheets() -> list:
+    """Lê resumos do Google Sheets. Retorna [] se não configurado."""
+    creds_raw = _secret("GOOGLE_SHEETS_CREDENTIALS", "")
+    sheet_url = _secret("GOOGLE_SHEETS_URL", "")
+    if not creds_raw or not sheet_url:
+        return []
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials as SACredentials
+
+        creds_dict = json.loads(creds_raw)
+        scopes = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = SACredentials.from_service_account_info(creds_dict, scopes=scopes)
+        client = gspread.authorize(creds)
+        sheet = client.open_by_url(sheet_url).sheet1
+        rows = sheet.get_all_records()
+
+        resumos = []
+        for r in rows:
+            acoes_raw = r.get("acoes", "")
+            try:
+                acoes = json.loads(acoes_raw) if acoes_raw else []
+            except (json.JSONDecodeError, TypeError):
+                acoes = []
+            resumos.append({
+                "titulo": str(r.get("titulo", "")).strip(),
+                "data":   str(r.get("data",   "")).strip(),
+                "resumo": str(r.get("resumo", "")).strip(),
+                "link":   str(r.get("link",   "")).strip(),
+                "acoes":  acoes,
+            })
+        return list(reversed(resumos))  # mais recentes primeiro
+    except Exception:
+        return []
+
+
 def _carregar_resumos() -> list:
+    """Tenta Google Sheets; fallback para arquivo local (dev)."""
+    dados = _carregar_resumos_sheets()
+    if dados:
+        return dados
     if not os.path.exists(DB_RESUMOS):
         return []
     try:
