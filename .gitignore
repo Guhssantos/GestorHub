@@ -1,0 +1,17 @@
+# Streamlit secrets (nunca versionar)
+.streamlit/secrets.toml
+
+# Dados locais
+resumos.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
